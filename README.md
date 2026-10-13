@@ -16,7 +16,7 @@
 | 檔案 | 做什麼 |
 |---|---|
 | `js/transport-supabase.js` | **連 Supabase 的程式**。負責進入與離開頻道、收發訊息、線上名單、斷線重連 |
-| `js/main.js` | 總指揮。**第 4 行**的 `import` 載入 `transport-supabase.js`,它是唯一決定「用哪一個收發零件」的地方 |
+| `js/main.js` | 總指揮。**最上面的 `import { createTransport } ...` 那一行**載入 `transport-supabase.js`,它是唯一決定「用哪一個收發零件」的地方 |
 | `js/config.js` | **Supabase 的設定**:專案網址與公開金鑰(Publishable key) |
 | `js/transport-mock.js` | 階段一用的假收發零件(只在同一個瀏覽器的分頁之間互傳),留作測試用 |
 | `js/ui.js`、`js/validate.js`、`js/color.js` | 畫面更新、代號與訊息的檢查規則、代號顏色 |
