@@ -1,7 +1,7 @@
 // 總指揮:決定現在顯示哪個畫面,把「畫面」和「收發零件」串起來。
-// 這裡是唯一知道現在用的是哪一個收發零件的地方。階段二只要把下面這行 import
-// 換成 './transport-supabase.js',其餘程式不用改。
-import { createTransport } from './transport-mock.js';
+// 這裡是唯一知道現在用的是哪一個收發零件的地方。
+// 階段一用假零件 './transport-mock.js',階段二換成下面這行真零件,其餘程式不用改。
+import { createTransport } from './transport-supabase.js';
 import { createUI } from './ui.js';
 import {
   SEND_INTERVAL_MS,
