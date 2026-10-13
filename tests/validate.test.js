@@ -90,3 +90,9 @@ test('顏色:同一個代號永遠同一個顏色,且都在色盤裡', () => {
   assert.equal(colorFor('Amy'), colorFor('ａｍｙ'));
   for (const n of ['小華', '阿凱', '夜貓', 'x', '😀']) assert.ok(PALETTE.includes(colorFor(n)));
 });
+
+test('收訊息的最短間隔比送出端短,才容得下網路延遲', async () => {
+  const { RECEIVE_INTERVAL_MS, SEND_INTERVAL_MS } = await import('../js/validate.js');
+  assert.ok(RECEIVE_INTERVAL_MS < SEND_INTERVAL_MS);
+  assert.ok(RECEIVE_INTERVAL_MS >= 500); // 也不能短到失去擋洗版的作用
+});

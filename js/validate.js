@@ -3,6 +3,9 @@
 export const NICK_MAX = 12;
 export const TEXT_MAX = 200;
 export const SEND_INTERVAL_MS = 1000;
+// 收訊息時,同一個代號兩則訊息的最短間隔。比送出端的 1 秒短,留出空間給網路延遲:
+// 兩則本來隔 1 秒送出的訊息,有時會在不到 1 秒內先後到達。
+export const RECEIVE_INTERVAL_MS = 700;
 export const ROOM_LIMIT = 50;
 
 // 控制字元與看不見的方向/零寬字元不能出現在代號或訊息裡。

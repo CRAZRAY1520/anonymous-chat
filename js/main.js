@@ -4,6 +4,7 @@
 import { createTransport } from './transport-supabase.js';
 import { createUI } from './ui.js';
 import {
+  RECEIVE_INTERVAL_MS,
   SEND_INTERVAL_MS,
   createRateLimiter,
   isValidIncoming,
@@ -48,8 +49,9 @@ const transport = createTransport({
 if (transport.dev) window.__mock = transport.dev;
 
 const sendLimiter = createRateLimiter({ max: 1, windowMs: SEND_INTERVAL_MS });
-// 收訊息時同一個代號也是每秒最多一則,超過的部分直接丟掉(架構文件 9.2)
-const receiveLimiter = createRateLimiter({ max: 1, windowMs: SEND_INTERVAL_MS });
+// 收訊息時,同一個代號兩則訊息間隔不到 RECEIVE_INTERVAL_MS 的,後到的直接丟掉(架構文件 9.2)。
+// 比送出端的一秒短一點,是為了容許網路延遲,避免誤丟正常的訊息。
+const receiveLimiter = createRateLimiter({ max: 1, windowMs: RECEIVE_INTERVAL_MS });
 
 // 自己送出的訊息編號。收到「代號是自己」的訊息時,只有編號在這裡的才算自己說的,
 // 別人冒用我的代號送來的訊息會被丟掉。
