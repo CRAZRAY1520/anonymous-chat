@@ -82,9 +82,9 @@ button:disabled { cursor: not-allowed; }
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   padding: 0 28px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto; /* 鍵盤彈出、畫面很矮時,內容可以捲動,不會被切掉 */
 }
 .login::before {
   content: "";
@@ -105,11 +105,25 @@ button:disabled { cursor: not-allowed; }
   position: relative;
   width: 100%;
   max-width: 380px;
-  margin: 0 auto;
+  margin: auto; /* 上下左右自動置中,下面的小字連結固定在最底部 */
   display: flex;
   flex-direction: column;
   gap: 28px;
 }
+.login-foot {
+  position: relative;
+  flex: none;
+  margin: 0 -16px; /* 抵銷一部分左右留白,窄螢幕上才放得下一整行 */
+  padding: 16px 0 calc(16px + env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: clamp(10.5px, 3.1vw, 12px); /* 螢幕越窄字越小,維持一行 */
+  line-height: 1.6;
+  color: var(--muted2);
+  overflow-wrap: anywhere;
+}
+.login-foot a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.login-foot a:hover { color: var(--lamp); }
+
 .login-head { display: flex; flex-direction: column; gap: 12px; }
 .login-head h1 { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: 0.02em; }
 .login-head p { margin: 0; font-size: 15px; line-height: 1.7; color: var(--muted); }
