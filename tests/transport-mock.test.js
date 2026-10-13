@@ -49,11 +49,13 @@ test('訊息:自己和對方都收得到,後來的人看不到之前的訊息', 
     await b.join('乙');
     const logA = record(a);
     const logB = record(b);
-    assert.equal(a.send('哈囉'), true);
+    const sentId = a.send('哈囉');
+    assert.equal(typeof sentId, 'string'); // 回傳訊息編號,讓畫面辨認哪些是自己送的
     await sleep(50);
     const msgA = logA.filter((e) => e[0] === 'onMessage');
     const msgB = logB.filter((e) => e[0] === 'onMessage');
     assert.equal(msgA.length, 1); // 自己送的也從 onMessage 回來
+    assert.equal(msgA[0][1].id, sentId); // 編號和 send() 回傳的相同
     assert.equal(msgB.length, 1);
     assert.equal(msgB[0][1].text, '哈囉');
     assert.equal(msgB[0][1].nickname, '甲');
@@ -159,4 +161,9 @@ test('真的斷線(完全沒回應)的人,還是會在逾時後被判定離開',
     a.leave();
     b.leave();
   }
+});
+
+test('還沒進入聊天室時 send() 回傳 false', () => {
+  const t = createTransport();
+  assert.equal(t.send('嗨'), false);
 });

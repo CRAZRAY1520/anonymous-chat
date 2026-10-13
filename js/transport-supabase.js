@@ -3,7 +3,7 @@
 //
 //   join(nickname) → Promise<{ ok: true } | { ok: false, reason: 'taken' | 'full' | 'failed' }>
 //   leave()
-//   send(text)     → boolean
+//   send(text)     → 送出的訊息編號(id);沒送出(還沒進入、連線中斷)就回傳 false
 //   on(eventName, handler)
 //   事件:onMessage、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
 //
@@ -281,14 +281,9 @@ export function createTransport() {
 
   function send(text) {
     if (!joined || !online || !channel) return false;
-    channel
-      .send({
-        type: 'broadcast',
-        event: 'message',
-        payload: { id: crypto.randomUUID(), nickname: me.nickname, text, sentAt: Date.now() },
-      })
-      .catch((err) => console.error('送出失敗', err));
-    return true;
+    const payload = { id: crypto.randomUUID(), nickname: me.nickname, text, sentAt: Date.now() };
+    channel.send({ type: 'broadcast', event: 'message', payload }).catch((err) => console.error('送出失敗', err));
+    return payload.id;
   }
 
   return { join, leave, send, on };

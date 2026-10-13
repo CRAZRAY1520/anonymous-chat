@@ -48,8 +48,16 @@ const transport = createTransport({
 if (transport.dev) window.__mock = transport.dev;
 
 const sendLimiter = createRateLimiter({ max: 1, windowMs: SEND_INTERVAL_MS });
-// 收訊息時的上限放寬一點,網路延遲可能讓兩則本來隔一秒的訊息擠在一起到達
-const receiveLimiter = createRateLimiter({ max: 2, windowMs: 1000 });
+// 收訊息時同一個代號也是每秒最多一則,超過的部分直接丟掉(架構文件 9.2)
+const receiveLimiter = createRateLimiter({ max: 1, windowMs: SEND_INTERVAL_MS });
+
+// 自己送出的訊息編號。收到「代號是自己」的訊息時,只有編號在這裡的才算自己說的,
+// 別人冒用我的代號送來的訊息會被丟掉。
+const sentIds = new Set();
+function rememberSent(id) {
+  sentIds.add(id);
+  if (sentIds.size > 100) sentIds.delete(sentIds.values().next().value);
+}
 
 let me = null; // { nickname, key }
 let inChat = false;
@@ -91,7 +99,10 @@ const ui = createUI({
     const v = validateMessage(raw);
     if (!v.ok) return 'invalid';
     if (!sendLimiter.tryPass('me')) return 'tooFast';
-    return transport.send(v.value) ? 'ok' : 'offline';
+    const sentId = transport.send(v.value);
+    if (!sentId) return 'offline';
+    rememberSent(sentId);
+    return 'ok';
   },
 });
 
@@ -100,6 +111,7 @@ function resetSession() {
   inChat = false;
   online = true;
   roster = [];
+  sentIds.clear();
   unread = 0;
   updateTitle();
 }
@@ -157,7 +169,10 @@ transport.on('onMessage', (msg) => {
   if (!inChat || !isValidIncoming(msg)) return;
   const key = nicknameKey(msg.nickname);
   const mine = key === me.key;
-  if (!mine) {
+  if (mine) {
+    // 代號是自己的,但不是我送出的:有人冒用我的代號,丟掉
+    if (!sentIds.delete(msg.id)) return;
+  } else {
     // 不在線上名單裡的人說的話、或說太快的部分,直接丟掉
     if (!roster.some((p) => nicknameKey(p.nickname) === key)) return;
     if (!receiveLimiter.tryPass(key)) return;

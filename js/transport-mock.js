@@ -4,7 +4,7 @@
 //
 //   join(nickname) → Promise<{ ok: true } | { ok: false, reason: 'taken' | 'full' | 'failed' }>
 //   leave()
-//   send(text)     → boolean(有沒有送出)
+//   send(text)     → 送出的訊息編號(id);沒送出(還沒進入、連線中斷)就回傳 false
 //   on(eventName, handler) → 取消訂閱用的函式
 //
 //   事件:onMessage、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
@@ -312,8 +312,10 @@ export function createTransport({ bots = false, crowd = 0, timing = {} } = {}) {
     if (!joined || !online) return false;
     const message = { id: crypto.randomUUID(), nickname: me.nickname, text, sentAt: Date.now() };
     post({ type: 'chat', message });
-    emit('onMessage', message); // 自己送的也從 onMessage 回來,畫面統一從這裡顯示
-    return true;
+    // 自己送的也從 onMessage 回來,畫面統一從這裡顯示。
+    // 晚一拍再發出,呼叫端才來得及先記下回傳的訊息編號(真零件的訊息要繞一圈伺服器,本來就是之後才到)。
+    queueMicrotask(() => emit('onMessage', message));
+    return message.id;
   }
 
   // 關掉分頁時趕快說再見,別人就不用等逾時
