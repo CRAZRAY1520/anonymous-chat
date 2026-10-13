@@ -4,6 +4,17 @@
 
 **網站:https://crazray1520.github.io/anonymous-chat/**
 
+## 如何確認這個網站由這個 repo 產生
+
+網站沒有建置步驟,**網站上的檔案就是這個 repo `main` 分支的檔案,原樣提供**。可以這樣確認:
+
+1. 打開網站,輸入代號畫面的最下方有「原始碼」連結,指向 https://github.com/CRAZRAY1520/anonymous-chat 。這個連結寫在網頁的 HTML 裡。
+2. 本 repo 的 About 欄位填的網站網址就是 https://crazray1520.github.io/anonymous-chat/ ,repo 首頁右側的 **Deployments → github-pages** 每次 push 都有一筆部署紀錄,對應到相同的 commit。
+3. 開啟 https://crazray1520.github.io/anonymous-chat/js/transport-supabase.js ,內容和 https://github.com/CRAZRAY1520/anonymous-chat/blob/main/js/transport-supabase.js 完全相同。
+4. 網站載入 `js/main.js`,它最上面的 `import { createTransport }` 載入 `js/transport-supabase.js`,裡面用 `createClient(...)` 連 Supabase,設定在 `js/config.js`(專案網址 `ldfxdapblpwkhvcblfkf.supabase.co`)。在瀏覽器開發人員工具的 Network 分頁,可以看到網站對這個網址建立 WebSocket 連線。
+
+這個 repo 曾經叫 `anonymous-chat1`,後來改名。舊 repo 網址會自動轉址到現在的 repo,但舊的網站網址 `.../anonymous-chat1/` 已經失效。
+
 ## 怎麼運作
 
 - 網頁(純 HTML、CSS、JavaScript,沒有框架)放在 GitHub Pages。

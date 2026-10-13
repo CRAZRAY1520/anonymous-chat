@@ -11,12 +11,13 @@
 //   Broadcast:傳聊天訊息(事件名稱 message,Supabase 不保存)
 //   Presence :線上名單、進出提示、斷線偵測
 
+// Supabase 官方函式庫 @supabase/supabase-js,從 jsDelivr CDN 載入,所以不需要 npm install 或打包。
+// 版本固定(不要寫成 @2 或 latest,避免哪天悄悄換版本)。如果 CDN 連不上,整支程式都載入不了,
+// index.html 會在輸入代號畫面顯示「程式載入失敗」的提示(見 chatLoadFailed)。
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';
+
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
 import { nicknameKey, validateNickname, ROOM_LIMIT } from './validate.js';
-
-// 函式庫固定版本(不要寫成 @2 或 latest,避免哪天悄悄換版本)。用到時才載入,
-// 這樣就算 CDN 暫時連不上,頁面也只會顯示「連線失敗」,不會整頁空白。
-const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';
 
 const CHANNEL_NAME = 'lobby';
 const SUBSCRIBE_TIMEOUT_MS = 10000; // 連上頻道最多等多久
@@ -25,15 +26,6 @@ const RACE_MS = 700; // 登記後再等一下,看有沒有人同一瞬間搶同�
 
 const EVENTS = ['onMessage', 'onJoin', 'onLeave', 'onRosterChange', 'onReconnect', 'onDisconnect', 'onKicked'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-let libPromise = null;
-function loadLib() {
-  libPromise ??= import(SUPABASE_JS).catch((err) => {
-    libPromise = null; // 下次可以重試
-    throw err;
-  });
-  return libPromise;
-}
 
 export function createTransport() {
   const id = crypto.randomUUID(); // 這個分頁在 Presence 裡的識別碼
@@ -130,7 +122,6 @@ export function createTransport() {
   async function getClient() {
     if (client) return client;
     if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) throw new Error('js/config.js 還沒填入專案網址與公開金鑰');
-    const { createClient } = await loadLib();
     client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       // 這個專案沒有登入,不需要也不要把任何登入資料存進瀏覽器
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

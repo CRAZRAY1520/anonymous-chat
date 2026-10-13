@@ -115,6 +115,16 @@
   </section>
 
 </div>
-<script type="module" src="js/main.js"></script>
+<script>
+  // 程式(包含從 CDN 載入的 Supabase 函式庫)載入失敗時,在輸入代號畫面顯示原因,不要整頁沒反應
+  function chatLoadFailed() {
+    var m = document.getElementById('login-msg');
+    if (m) {
+      m.textContent = '程式載入失敗,可能是網路問題,請重新整理頁面。';
+      m.className = 'login-msg is-error';
+    }
+  }
+</script>
+<script type="module" src="js/main.js" onerror="chatLoadFailed()"></script>
 </body>
 </html>
