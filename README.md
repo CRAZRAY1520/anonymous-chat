@@ -2,7 +2,7 @@
 
 不用註冊、不用登入的匿名聊天室。打開網頁、輸入一個代號,就進到同一個聊天室。訊息不保存,聊完就消失。
 
-**網站:https://crazray1520.github.io/anonymous-chat1/**
+**網站:https://crazray1520.github.io/anonymous-chat/**
 
 ## 怎麼運作
 

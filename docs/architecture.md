@@ -471,7 +471,7 @@ Supabase 的連線同樣靠定時的心跳(定時告訴伺服器「我還連著�
 > **repo**(儲存庫)就是這個專案在 GitHub 上的整個資料夾。
 
 ```
-anonymous-chat1/
+anonymous-chat/
 ├── index.html             網頁的入口,使用者打開網址看到的就是它
 ├── .gitignore             告訴 git 哪些檔案不要上傳(見第 8.5 節)
 ├── css/
