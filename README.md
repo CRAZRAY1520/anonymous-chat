@@ -50,6 +50,8 @@
 
 ## 開發歷程
 
+**開發順序:先做前端與假零件([`a10539b`](https://github.com/CRAZRAY1520/anonymous-chat/commit/a10539b)),再接上 Supabase([`b5ebc82`](https://github.com/CRAZRAY1520/anonymous-chat/commit/b5ebc82),當時函式庫從 CDN 載入),最後才改成 npm + Vite([`ab95e63`](https://github.com/CRAZRAY1520/anonymous-chat/commit/ab95e63))。前端先於 Supabase,對應需求文件「先把前端做好、最後才接 Supabase」。**
+
 以下依 `git log` 的實際紀錄整理(時間是 UTC+8,2026 年)。完整紀錄見 [commits](https://github.com/CRAZRAY1520/anonymous-chat/commits/main)。
 
 | 順序 | 時間 | commit | 做了什麼 |
@@ -61,6 +63,8 @@
 | 5 | 10/13 18:13–19:22 | [`d82c371`](https://github.com/CRAZRAY1520/anonymous-chat/commit/d82c371)、[`86e6d52`](https://github.com/CRAZRAY1520/anonymous-chat/commit/86e6d52)、[`11096c9`](https://github.com/CRAZRAY1520/anonymous-chat/commit/11096c9)、[`d54e6fa`](https://github.com/CRAZRAY1520/anonymous-chat/commit/d54e6fa) 等 | 實測後的修正與補強:擋掉冒用自己代號的訊息、收訊端間隔調為 0.7 秒避免誤丟訊息、repo 改名後更新網址、輸入代號畫面加上原始碼連結、函式庫改成最上面的一般 `import` |
 | 6 | 10/15 01:37 | [`b765fef`](https://github.com/CRAZRAY1520/anonymous-chat/commit/b765fef) | 新增 GitHub Actions 部署流程(當時仍不需要 build,直接上傳 repo 檔案) |
 | 7 | 10/15 01:55 | [`ab95e63`](https://github.com/CRAZRAY1520/anonymous-chat/commit/ab95e63) | **改成 npm + Vite**:`js/`、`css/` 搬到 `src/`(其中 6 個檔案只是改名、內容完全沒變),把函式庫改成 npm 套件(`@supabase/supabase-js` 2.117.2),Supabase 設定改由 Actions Variables 在 build 時注入,部署流程改成 build 後上傳 `dist/` |
+| 8 | 10/15 02:40 | [`2b8eea5`](https://github.com/CRAZRAY1520/anonymous-chat/commit/2b8eea5) | 測試時發現:重新整理後被誤判成「代號重複」而踢回輸入畫面。修正為自動進入時遇到重複先等待重試。同時補上這份開發歷程與「新增功能」說明,修正 `docs/requirements.md` 的排版 |
+| 9 | 10/15 02:59 | [`51a5943`](https://github.com/CRAZRAY1520/anonymous-chat/commit/51a5943) | 頁面關閉或重新整理時先主動離開頻道,讓重新整理後回到聊天室的時間平均從約 4.2 秒降到約 2.7 秒 |
 
 說明:
 
