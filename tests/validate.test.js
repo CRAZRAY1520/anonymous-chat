@@ -6,6 +6,11 @@ import {
   isValidTyping,
   isValidReaction,
   isValidRecall,
+  ROOMS,
+  DEFAULT_ROOM,
+  isValidRoom,
+  roomName,
+  roomChannelName,
   REACTIONS,
   nicknameKey,
   validateMessage,
@@ -140,4 +145,19 @@ test('收回訊息:格式正確才接受', () => {
   assert.equal(isValidRecall({ msgId: 7, nickname: '小華' }), false);
   assert.equal(isValidRecall({ msgId: 'm1', nickname: ' 小華' }), false);
   assert.equal(isValidRecall({ msgId: 'm1', nickname: 5 }), false);
+});
+
+test('聊天室:清單、預設、名稱與頻道名稱', () => {
+  assert.deepEqual(ROOMS.map((r) => r.id), ['lobby', 'chat', 'night']);
+  assert.equal(DEFAULT_ROOM, 'lobby');
+  assert.equal(isValidRoom('chat'), true);
+  assert.equal(isValidRoom('nope'), false);
+  assert.equal(isValidRoom(undefined), false);
+  assert.equal(isValidRoom('lobby; drop'), false);
+  assert.equal(roomName('night'), '深夜');
+  assert.equal(roomName('nope'), '大廳'); // 不認得的編號退回預設
+  assert.equal(roomChannelName('lobby'), 'lobby'); // 大廳沿用原本的頻道名稱
+  assert.equal(roomChannelName('chat'), 'room-chat');
+  const names = ROOMS.map((r) => roomChannelName(r.id));
+  assert.equal(new Set(names).size, names.length); // 每個聊天室的頻道名稱都不同
 });

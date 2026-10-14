@@ -4,6 +4,7 @@
 import { createTransport } from './transport-supabase.js';
 import { createUI } from './ui.js';
 import {
+  DEFAULT_ROOM,
   RECEIVE_INTERVAL_MS,
   SEND_INTERVAL_MS,
   TYPING_EXPIRE_MS,
@@ -11,6 +12,7 @@ import {
   isValidIncoming,
   isValidReaction,
   isValidRecall,
+  isValidRoom,
   isValidTyping,
   nicknameKey,
   validateMessage,
@@ -24,8 +26,9 @@ const AUTO_RETRY_MS = 1500; // 每次重試前等多久
 const RECONNECT_NOTE = '已重新連線,中斷期間的訊息看不到';
 const TAKEN_AFTER_LOST = '你的代號已被使用,請重新取一個。';
 
-// 代號記在「這個分頁自己的」sessionStorage:重新整理還在,關掉分頁就消失,
+// 代號與聊天室記在「這個分頁自己的」sessionStorage:重新整理還在,關掉分頁就消失,
 // 開多個分頁也不會互相影響。讀寫失敗(例如無痕模式)時照常運作,只是不會記住。
+const ROOM_KEY = 'anon-chat:room';
 const store = {
   get() {
     try {
@@ -34,14 +37,23 @@ const store = {
       return null;
     }
   },
-  set(v) {
+  getRoom() {
     try {
-      sessionStorage.setItem(STORE_KEY, v);
+      return sessionStorage.getItem(ROOM_KEY);
+    } catch {
+      return null;
+    }
+  },
+  set(nickname, roomId) {
+    try {
+      sessionStorage.setItem(STORE_KEY, nickname);
+      sessionStorage.setItem(ROOM_KEY, roomId);
     } catch {}
   },
   clear() {
     try {
       sessionStorage.removeItem(STORE_KEY);
+      sessionStorage.removeItem(ROOM_KEY);
     } catch {}
   },
 };
@@ -127,6 +139,8 @@ let inChat = false;
 let online = true;
 let roster = [];
 let pendingNickname = '';
+let room = DEFAULT_ROOM; // 目前所在的聊天室
+let pendingRoom = DEFAULT_ROOM;
 let unread = 0;
 
 // ---------- 分頁標題的未讀數 ----------
@@ -144,18 +158,26 @@ document.addEventListener('visibilitychange', () => {
 // ---------- 畫面 ----------
 
 const ui = createUI({
-  onNickname(raw) {
+  onNickname(raw, roomId) {
     const v = validateNickname(raw);
-    if (v.ok) tryJoin(v.value, 'login');
+    if (v.ok) tryJoin(v.value, 'login', isValidRoom(roomId) ? roomId : DEFAULT_ROOM);
   },
   onRetry() {
-    tryJoin(pendingNickname, 'retry');
+    tryJoin(pendingNickname, 'retry', pendingRoom);
   },
   onLeave() {
     transport.leave();
     store.clear();
     resetSession();
-    ui.showLogin({ nickname: '' });
+    ui.showLogin({ nickname: '', room });
+  },
+  // 在聊天室裡換房間:離開現在這間,用同一個代號進另一間(名單和訊息各自獨立)
+  onSwitchRoom(newRoom) {
+    if (!inChat || !isValidRoom(newRoom) || newRoom === room) return;
+    const nickname = me.nickname;
+    transport.leave();
+    resetSession();
+    tryJoin(nickname, 'switch', newRoom);
   },
   onSend(raw) {
     if (!online) return 'offline';
@@ -211,19 +233,21 @@ function enterChat(reconnected) {
   unread = 0;
   updateTitle();
   ui.showChat();
+  ui.setRoom(room);
   ui.renderRoster(roster, me.key, nicknameKey);
   if (reconnected) ui.addSystem(RECONNECT_NOTE);
 }
 
-// from: 'login' 使用者按進入、'auto' 重新整理後自動回來、'retry' 在「已滿」畫面按重試
-async function tryJoin(nickname, from) {
+// from: 'login' 使用者按進入、'auto' 重新整理後自動回來、'retry' 在「已滿」畫面按重試、'switch' 在聊天室裡換房間
+async function tryJoin(nickname, from, roomId) {
   pendingNickname = nickname;
+  pendingRoom = roomId;
   if (from === 'login') ui.setLoginBusy(true);
-  if (from === 'auto') ui.showLogin({ nickname, busy: true });
+  if (from === 'auto' || from === 'switch') ui.showLogin({ nickname, room: roomId, busy: true });
 
   const attempt = async () => {
     try {
-      return await transport.join(nickname);
+      return await transport.join(nickname, roomId);
     } catch (err) {
       console.error(err);
       return { ok: false, reason: 'failed' };
@@ -240,12 +264,13 @@ async function tryJoin(nickname, from) {
 
   if (result.ok) {
     me = { nickname, key: nicknameKey(nickname) };
-    store.set(nickname);
+    room = roomId;
+    store.set(nickname, roomId);
     enterChat(from === 'auto');
     return;
   }
   if (result.reason === 'full') {
-    ui.showFull();
+    ui.showFull(roomId);
     return;
   }
   store.clear();
@@ -255,7 +280,7 @@ async function tryJoin(nickname, from) {
         ? TAKEN_AFTER_LOST
         : '這個代號有人用了,請換一個。'
       : '連線失敗,請稍後再試。';
-  ui.showLogin({ nickname, message });
+  ui.showLogin({ nickname, room: roomId, message });
 }
 
 // ---------- 收發零件回報的事件 ----------
@@ -354,12 +379,17 @@ transport.on('onKicked', () => {
   const nickname = me.nickname;
   store.clear();
   resetSession();
-  ui.showLogin({ nickname, message: TAKEN_AFTER_LOST });
+  ui.showLogin({ nickname, room, message: TAKEN_AFTER_LOST });
 });
 
 // ---------- 開始 ----------
 
+// 網址加 ?room=chat 可以預先選好聊天室(沒有記住的代號時)
+const paramRoom = params.get('room');
+if (isValidRoom(paramRoom)) ui.setRoom(paramRoom);
+
 const saved = store.get();
 if (saved && validateNickname(saved).ok) {
-  tryJoin(saved, 'auto');
+  const savedRoom = store.getRoom();
+  tryJoin(saved, 'auto', isValidRoom(savedRoom) ? savedRoom : DEFAULT_ROOM);
 }

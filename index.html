@@ -29,6 +29,8 @@
           <input id="nick" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="login-msg">
           <span id="nick-count" class="field-count" aria-hidden="true">0/12</span>
         </div>
+        <label for="room">聊天室</label>
+        <select id="room" class="room-select"></select>
         <div id="login-msg" class="login-msg" role="alert"></div>
         <button id="login-btn" type="submit" class="btn-primary" disabled>進入聊天室</button>
       </form>
@@ -47,6 +49,7 @@
       <div class="login-form">
         <div id="full-msg" class="login-msg is-lamp" role="status">聊天室已滿,請稍後再來。</div>
         <button id="retry-btn" type="button" class="btn-outline">重試</button>
+        <button id="full-back" type="button" class="btn-ghost">換一個聊天室</button>
       </div>
     </div>
   </section>
@@ -55,7 +58,7 @@
   <section id="screen-chat" class="screen chat" hidden>
     <main class="chat-main">
       <header class="topbar">
-        <div class="brand"><span class="lamp-dot small" aria-hidden="true"></span>匿名聊天室</div>
+        <div class="brand"><span class="lamp-dot small" aria-hidden="true"></span><span class="brand-text">匿名聊天室</span><select id="room-switch" class="room-switch" aria-label="切換聊天室"></select></div>
         <div class="topbar-actions">
           <button id="pill" type="button" class="pill" aria-expanded="false" aria-controls="roster-panel">
             <span class="online-dot" aria-hidden="true"></span><span>線上 <span id="count-pill">0</span> 人</span><span id="pill-caret" aria-hidden="true">▾</span>

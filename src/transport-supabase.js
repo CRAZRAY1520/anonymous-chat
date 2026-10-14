@@ -1,7 +1,7 @@
 // 階段二用的「真收發零件」:透過 Supabase Realtime 收發。
 // 對外介面和 transport-mock.js 完全相同(見架構文件第 5 節):
 //
-//   join(nickname) → Promise<{ ok: true } | { ok: false, reason: 'taken' | 'full' | 'failed' }>
+//   join(nickname, room) → Promise<{ ok: true } | { ok: false, reason: 'taken' | 'full' | 'failed' }>
 //   leave()
 //   send(text)     → 送出的訊息編號(id);沒送出(還沒進入、連線中斷)就回傳 false
 //   on(eventName, handler)
@@ -19,9 +19,9 @@
 import { createClient } from '@supabase/supabase-js';
 
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
-import { nicknameKey, validateNickname, ROOM_LIMIT } from './validate.js';
+import { DEFAULT_ROOM, nicknameKey, validateNickname, roomChannelName, ROOM_LIMIT } from './validate.js';
 
-const CHANNEL_NAME = 'lobby';
+// 頻道名稱由聊天室決定(見 validate.js 的 roomChannelName):大廳是 lobby,其他是 room-<編號>
 const SUBSCRIBE_TIMEOUT_MS = 10000; // 連上頻道最多等多久
 const SYNC_WAIT_MS = 3000; // 等線上名單同步最多等多久
 const RACE_MS = 700; // 登記後再等一下,看有沒有人同一瞬間搶同一個代號
@@ -204,13 +204,13 @@ export function createTransport() {
 
   // ---------- 對外介面 ----------
 
-  async function join(nickname) {
+  async function join(nickname, room = DEFAULT_ROOM) {
     if (joined || channel) leave();
     await closing;
     let ch = null;
     try {
       const c = await getClient();
-      ch = c.channel(CHANNEL_NAME, {
+      ch = c.channel(roomChannelName(room), {
         config: {
           // self: 自己送的訊息也會從伺服器回來,畫面統一從 onMessage 顯示
           broadcast: { self: true },

@@ -2,7 +2,7 @@
 // BroadcastChannel 互傳,行為遵守架構文件第 5 節的通訊約定。
 // 階段二會換成 transport-supabase.js,兩者的對外介面完全相同:
 //
-//   join(nickname) → Promise<{ ok: true } | { ok: false, reason: 'taken' | 'full' | 'failed' }>
+//   join(nickname, room) → Promise<{ ok: true } | { ok: false, reason: 'taken' | 'full' | 'failed' }>
 //   leave()
 //   send(text)     → 送出的訊息編號(id);沒送出(還沒進入、連線中斷)就回傳 false
 //   on(eventName, handler) → 取消訂閱用的函式
@@ -12,9 +12,9 @@
 //   recall(msgId) → 收回自己送出的某則訊息;自己也會從 onRecall 收到
 //   事件:onMessage、onTyping、onReaction、onRecall、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
 
-import { nicknameKey, ROOM_LIMIT } from './validate.js';
+import { DEFAULT_ROOM, nicknameKey, ROOM_LIMIT } from './validate.js';
 
-const CHANNEL_NAME = 'anon-chat-mock-lobby';
+const CHANNEL_PREFIX = 'anon-chat-mock-'; // 每個聊天室一個頻道:anon-chat-mock-lobby、anon-chat-mock-chat…
 // 時間設定。瀏覽器會把「背景分頁」的計時器放慢,所以光靠對方定時報到來判斷
 // 「還在不在」會誤判。做法是:對方太久沒消息時,先主動問一次(收到詢問是事件,
 // 不受計時器放慢影響,背景分頁也會立刻回答),問了還是沒回應才當作離開。
@@ -55,6 +55,7 @@ export function createTransport({ bots = false, crowd = 0, timing = {} } = {}) {
   const handlers = Object.fromEntries(EVENTS.map((e) => [e, new Set()]));
   const peers = new Map(); // peerId → { id, nickname, joinedAt, lastSeen, fake? }
 
+  let room = DEFAULT_ROOM; // 目前進入(或正要進入)的聊天室
   let channel = null;
   let heartbeatTimer = null;
   let sweepTimer = null;
@@ -97,7 +98,7 @@ export function createTransport({ bots = false, crowd = 0, timing = {} } = {}) {
 
   function open() {
     if (channel || typeof BroadcastChannel === 'undefined') return;
-    channel = new BroadcastChannel(CHANNEL_NAME);
+    channel = new BroadcastChannel(`${CHANNEL_PREFIX}${room}`);
     channel.onmessage = (e) => handle(e.data);
   }
 
@@ -278,8 +279,9 @@ export function createTransport({ bots = false, crowd = 0, timing = {} } = {}) {
   }
 
   // ---- 對外介面 ----
-  async function join(nickname) {
+  async function join(nickname, roomId = DEFAULT_ROOM) {
     if (joined) leave();
+    room = roomId;
     online = true;
     open();
     post({ type: 'who' });

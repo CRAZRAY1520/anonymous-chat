@@ -234,3 +234,56 @@ test('收回訊息:所有人(包含自己)都收到;還沒進入時回傳 false'
     b.leave();
   }
 });
+
+test('多個聊天室:不同房間的名單與訊息分開;同一個代號可以在不同房間;同房間仍然不行', async () => {
+  const a = createTransport();
+  const b = createTransport();
+  const c = createTransport();
+  try {
+    assert.deepEqual(await a.join('甲', 'lobby'), { ok: true });
+    assert.deepEqual(await b.join('乙', 'chat'), { ok: true });
+    const logA = record(a);
+    const logB = record(b);
+    assert.deepEqual(await c.join('甲', 'chat'), { ok: true }); // 「甲」在大廳有人用,但在閒聊沒有
+    const logC = record(c);
+    a.send('大廳的話');
+    b.send('閒聊的話');
+    await sleep(100);
+    const texts = (log) => log.filter((e) => e[0] === 'onMessage').map((e) => e[1].text);
+    assert.deepEqual(texts(logA), ['大廳的話']); // 大廳的人只看到大廳的
+    assert.deepEqual(texts(logB).sort(), ['閒聊的話']);
+    assert.deepEqual(texts(logC), ['閒聊的話']); // 閒聊的人看不到大廳的
+    const rosterOf = (log) => log.filter((e) => e[0] === 'onRosterChange').at(-1)?.[1].map((p) => p.nickname).sort();
+    assert.deepEqual(rosterOf(logB), ['乙', '甲']); // 閒聊:乙、甲
+    // 同一個房間,同一個代號:不行
+    const d = createTransport();
+    assert.deepEqual(await d.join('乙', 'chat'), { ok: false, reason: 'taken' });
+    d.leave();
+  } finally {
+    a.leave();
+    b.leave();
+    c.leave();
+  }
+});
+
+test('多個聊天室:換房間(離開再進另一間)後,舊房間的人看到離開、新房間的人看到進來', async () => {
+  const a = createTransport();
+  const b = createTransport();
+  const c = createTransport();
+  try {
+    await a.join('甲', 'lobby');
+    await b.join('乙', 'lobby');
+    await c.join('丙', 'chat');
+    const logB = record(b);
+    const logC = record(c);
+    a.leave();
+    await a.join('甲', 'chat');
+    await sleep(120);
+    assert.ok(logB.some((e) => e[0] === 'onLeave' && e[1] === '甲'));
+    assert.ok(logC.some((e) => e[0] === 'onJoin' && e[1] === '甲'));
+  } finally {
+    a.leave();
+    b.leave();
+    c.leave();
+  }
+});

@@ -6,6 +6,9 @@ import { colorFor } from './color.js';
 import {
   NICK_MAX,
   REACTIONS,
+  ROOMS,
+  isValidRoom,
+  roomName,
   TEXT_MAX,
   TYPING_SEND_INTERVAL_MS,
   countChars,
@@ -19,7 +22,7 @@ const HINT_MS = 1500;
 
 const $ = (id) => document.getElementById(id);
 
-export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onReact, onRecall }) {
+export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onReact, onRecall, onSwitchRoom }) {
   const el = {
     login: $('screen-login'),
     full: $('screen-full'),
@@ -30,6 +33,9 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onRea
     loginMsg: $('login-msg'),
     loginBtn: $('login-btn'),
     retryBtn: $('retry-btn'),
+    fullBack: $('full-back'),
+    room: $('room'),
+    roomSwitch: $('room-switch'),
     fullMsg: $('full-msg'),
     pill: $('pill'),
     pillCaret: $('pill-caret'),
@@ -53,6 +59,19 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onRea
     remain: $('remain'),
     typing: $('typing'),
   };
+
+  // 聊天室選單(輸入代號畫面一個、聊天室頂部一個)的選項
+  for (const sel of [el.room, el.roomSwitch]) {
+    for (const r of ROOMS) {
+      const o = document.createElement('option');
+      o.value = r.id;
+      o.textContent = r.name;
+      sel.append(o);
+    }
+  }
+  function setRoom(id) {
+    if (isValidRoom(id)) el.room.value = el.roomSwitch.value = id;
+  }
 
   // 觸控裝置(手機、平板)的 Enter 是換行,用按鈕送出
   const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -103,6 +122,7 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onRea
   function setLoginBusy(on) {
     busy = on;
     el.nick.disabled = on;
+    el.room.disabled = on;
     el.loginBtn.replaceChildren();
     if (on) {
       el.loginBtn.append(spinner(), '連線中');
@@ -133,16 +153,18 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onRea
     return svg;
   }
 
-  function showLogin({ nickname, message, busy: isBusy } = {}) {
+  function showLogin({ nickname, room, message, busy: isBusy } = {}) {
     showScreen('login');
     if (nickname !== undefined) el.nick.value = nickname;
+    if (room !== undefined) setRoom(room);
     setLoginBusy(false);
     if (message) setLoginMessage(message, 'error', 'server');
     if (isBusy) setLoginBusy(true);
   }
 
-  function showFull() {
+  function showFull(roomId) {
     showScreen('full');
+    el.fullMsg.textContent = `「${roomName(roomId)}」已滿,請稍後再來,或換一個聊天室。`;
     setRetryBusy(false);
   }
 
@@ -158,13 +180,15 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onRea
   el.form.addEventListener('submit', (e) => {
     e.preventDefault();
     if (busy || el.loginBtn.disabled) return;
-    onNickname(el.nick.value);
+    onNickname(el.nick.value, el.room.value);
   });
   el.retryBtn.addEventListener('click', () => {
     setRetryBusy(true);
     onRetry();
   });
   el.leave.addEventListener('click', onLeave);
+  el.fullBack.addEventListener('click', () => showLogin({ nickname: el.nick.value }));
+  el.roomSwitch.addEventListener('change', () => onSwitchRoom?.(el.roomSwitch.value));
 
   // ---------- 畫面 B:訊息列表 ----------
 
@@ -483,6 +507,7 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onRea
   return {
     showLogin,
     showFull,
+    setRoom,
     showChat: () => showScreen('chat'),
     setRetryBusy,
     setLoginBusy,

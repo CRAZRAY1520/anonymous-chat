@@ -6,7 +6,20 @@ export const SEND_INTERVAL_MS = 1000;
 // 收訊息時,同一個代號兩則訊息的最短間隔。比送出端的 1 秒短,留出空間給網路延遲:
 // 兩則本來隔 1 秒送出的訊息,有時會在不到 1 秒內先後到達。
 export const RECEIVE_INTERVAL_MS = 700;
-export const ROOM_LIMIT = 50;
+export const ROOM_LIMIT = 50; // 每個聊天室各自的人數上限
+
+// 可以選的聊天室。每個聊天室有自己的頻道,線上名單、訊息、人數上限都分開。
+// 「大廳」就是原本唯一的那個聊天室(頻道名稱維持 lobby)。
+export const ROOMS = [
+  { id: 'lobby', name: '大廳' },
+  { id: 'chat', name: '閒聊' },
+  { id: 'night', name: '深夜' },
+];
+export const DEFAULT_ROOM = 'lobby';
+export const isValidRoom = (id) => typeof id === 'string' && ROOMS.some((r) => r.id === id);
+export const roomName = (id) => ROOMS.find((r) => r.id === id)?.name ?? ROOMS[0].name;
+// 聊天室對應的頻道名稱(Supabase 版用;假零件用同樣的規則決定要連哪個)
+export const roomChannelName = (id) => (id === DEFAULT_ROOM ? 'lobby' : `room-${id}`);
 // 可以用的表情回應(用碼點組出來,避免原始碼裡的 emoji 被編輯器改掉)
 export const REACTIONS = [String.fromCodePoint(0x1f44d), String.fromCodePoint(0x2764, 0xfe0f), String.fromCodePoint(0x1f602)];
 export const TYPING_SEND_INTERVAL_MS = 2000; // 輸入中時,最多每隔這麼久通知一次大家

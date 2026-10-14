@@ -155,6 +155,16 @@ button:disabled { cursor: not-allowed; }
 }
 .field-count.over { color: var(--error); }
 
+.room-select {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 16px;
+}
+.room-select:disabled { color: var(--muted); }
 .login-msg { min-height: 20px; font-size: 13px; line-height: 1.5; color: var(--muted); }
 .login-msg.is-error { color: var(--error); }
 .login-msg.is-lamp { color: var(--lamp); }
@@ -176,6 +186,17 @@ button:disabled { cursor: not-allowed; }
 .brand { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
 .topbar-actions { display: flex; align-items: center; gap: 4px; }
 
+.room-switch {
+  margin-left: 6px;
+  min-height: 40px;
+  max-width: 8em;
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 14px;
+  font-weight: 500;
+}
 .pill {
   min-height: 44px;
   padding: 0 12px;
@@ -439,6 +460,11 @@ button:disabled { cursor: not-allowed; }
     border-left: 1px solid var(--line);
   }
   .roster-side .roster-title { height: 28px; padding: 0 8px; font-size: 13px; }
+}
+
+@media (max-width: 640px) {
+  .brand-text { display: none; }
+  .room-switch { margin-left: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

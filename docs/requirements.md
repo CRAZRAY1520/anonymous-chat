@@ -85,3 +85,9 @@
 - **說明**:自己送出的訊息旁邊有「收回」按鈕。按下去後,聊天室所有人的畫面,那則訊息的內容都變成「已收回」,原本的文字消失,表情回應也一併拿掉。只有送出那則訊息的人能收回,別人的訊息沒有這個按鈕。訊息仍然不保存。
 - **對應檔案**:`src/ui.js`(「收回」按鈕、`markRecalled`)、`src/main.js`(`authors`、`onRecall`、`recalledIds`)、`src/validate.js`(`isValidRecall`)、`src/transport-supabase.js` 與 `src/transport-mock.js`(`recall`)、`src/style.css`
 - **怎麼操作才看得到**:AIgraderA、AIgraderB、AIgraderC 三個瀏覽器進入同一個聊天室。AIgraderA 送出「這句話我要收回」。三邊都看到這則訊息,只有 AIgraderA 那邊的訊息旁邊有「收回」按鈕(AIgraderB、AIgraderC 看不到)。AIgraderA 按「收回」,三個瀏覽器裡那則訊息立刻變成虛線框的「已收回」。
+
+### 多個聊天室
+
+- **說明**:可以選聊天室(大廳、閒聊、深夜)。每個聊天室的線上名單、訊息、正在輸入、表情回應、人數上限(50 人)都各自獨立,別的聊天室的人看不到你說的話。同一個代號可以同時出現在不同聊天室,但同一個聊天室裡不能重複。原本的「所有人在同一個聊天室」就是預設的「大廳」。訊息仍然不保存。
+- **對應檔案**:`src/validate.js`(`ROOMS`、`isValidRoom`、`roomChannelName`)、`src/main.js`(`onSwitchRoom`、`tryJoin` 的聊天室參數、`store` 記住聊天室)、`src/ui.js`(聊天室選單)、`index.html`(`#room`、`#room-switch`)、`src/transport-supabase.js` 與 `src/transport-mock.js`(`join(代號, 聊天室)`,每個聊天室一個頻道)
+- **怎麼操作才看得到**:AIgraderA、AIgraderB、AIgraderC 三個瀏覽器打開網站。在輸入代號畫面,AIgraderA 與 AIgraderB 保持預設的「大廳」,AIgraderC 在「聊天室」下拉選單選「閒聊」,三人各自輸入自己的代號進入。AIgraderA 說一句話,AIgraderB 看得到,AIgraderC 看不到;AIgraderC 說話則反過來。三個人的線上名單也各自獨立(大廳 2 人、閒聊 1 人)。AIgraderB 用聊天室頂部的下拉選單換到「閒聊」,畫面清空、名單變成閒聊的(AIgraderB、AIgraderC),AIgraderC 看到「AIgraderB 進來了」,AIgraderA 看到「AIgraderB 離開了」。網址加上 `?room=night` 可以預先選好「深夜」。
