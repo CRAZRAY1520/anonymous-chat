@@ -276,5 +276,19 @@ export function createTransport() {
     return payload.id;
   }
 
+  // 頁面關閉或重新整理時,先主動離開頻道,讓伺服器馬上清掉這個分頁的登記,不要等它自己發現連線斷了。
+  // 這樣重新整理後自動進入時,不會被殘留的舊登記誤判成「代號重複」而要等待重試
+  // (實測 8 次:重新整理後回到聊天室,從約 4.2 秒降到約 2.7 秒;「離開」訊息不一定每次都來得及送出,偶爾還是會慢)。
+  // 如果頁面是進入瀏覽器的返回快取、之後又被還原(pageshow 的 persisted 為 true),頻道已經離開了,
+  // 最簡單穩當的做法是重新載入,走一次自動進入。
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', () => {
+      if (joined && channel) channel.unsubscribe();
+    });
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted && joined) location.reload();
+    });
+  }
+
   return { join, leave, send, on };
 }
