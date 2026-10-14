@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
 <div id="app">
@@ -115,16 +115,6 @@
   </section>
 
 </div>
-<script>
-  // 程式(包含從 CDN 載入的 Supabase 函式庫)載入失敗時,在輸入代號畫面顯示原因,不要整頁沒反應
-  function chatLoadFailed() {
-    var m = document.getElementById('login-msg');
-    if (m) {
-      m.textContent = '程式載入失敗,可能是網路問題,請重新整理頁面。';
-      m.className = 'login-msg is-error';
-    }
-  }
-</script>
-<script type="module" src="js/main.js" onerror="chatLoadFailed()"></script>
+<script type="module" src="/src/main.js"></script>
 </body>
 </html>

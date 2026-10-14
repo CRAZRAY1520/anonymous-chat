@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTransport } from '../js/transport-mock.js';
+import { createTransport } from '../src/transport-mock.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

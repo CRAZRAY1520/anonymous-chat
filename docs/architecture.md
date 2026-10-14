@@ -78,34 +78,40 @@ flowchart LR
 
 **重點:這個專案沒有自己的伺服器,也沒有資料庫。** 訊息只是經過 Supabase 轉送,不會被存下來,所以才做得到「聊完就消失」。
 
-### 另外還會向兩個地方載入東西
+### 另外還會向一個地方載入東西
 
-除了 GitHub Pages 和 Supabase,瀏覽器打開網頁時還會向兩個第三方載入資源,圖裡沒有畫:
+除了 GitHub Pages 和 Supabase,瀏覽器打開網頁時還會向一個第三方載入資源,圖裡沒有畫:
 
 | 載入什麼 | 從哪裡 | 如果它掛了 |
 |---|---|---|
 | 字體(Noto Sans TC) | Google Fonts | 退回系統預設字體,版面稍有不同,不影響使用 |
-| Supabase 的程式庫(`supabase-js`,固定使用 2.117.2 版) | jsDelivr(免費的公開程式庫網站) | 整支程式載入不了,輸入代號畫面顯示「程式載入失敗,可能是網路問題,請重新整理頁面」 |
 
-這也代表訪客的 IP 位址會被這兩個服務看到(聊天本身本來就會讓 GitHub 與 Supabase 看到)。這一版接受這個取捨。如果日後很在意匿名性或穩定性,可以改成把字體與程式庫放進 repo 由 GitHub Pages 自己提供,代價是要多放一些檔案,字體檔尤其大。
+這代表訪客的 IP 位址會被 Google Fonts 看到(聊天本身本來就會讓 GitHub 與 Supabase 看到)。這一版接受這個取捨。如果日後很在意匿名性,可以改成把字體檔放進專案、由網站自己提供,代價是字體檔不小。
+
+Supabase 的程式庫(`@supabase/supabase-js`)**不是**從外部網站載入的:它用 npm 安裝,在 build 時被打包進網站自己的 JavaScript 檔案裡,所以不依賴任何 CDN。
 
 ---
 
 ## 3. 技術選擇
 
-### 3.1 前端語言與框架
+### 3.1 前端語言、框架與建置工具
 
-> **前端**:使用者在瀏覽器裡看到、操作的部分。**框架**:別人寫好的一套工具,幫忙把複雜網頁組織起來,例如 React、Vue。
+> **前端**:使用者在瀏覽器裡看到、操作的部分。**框架**:別人寫好的一套工具,幫忙把複雜網頁組織起來,例如 React、Vue。**建置(build)**:把原始碼加工成可以上線的檔案。**npm**:JavaScript 的套件管理工具,用來安裝別人寫好的程式庫,安裝的清單記在 `package.json`。**Vite**:一個建置工具,負責把多個原始檔打包成瀏覽器能直接用的少數檔案。
 
-**選了什麼:** 純 HTML、CSS、JavaScript,不用框架。三者分工是 HTML 決定畫面上有什麼、CSS 決定長什麼樣子、JavaScript 決定按下去會發生什麼事。
+**選了什麼:** 純 HTML、CSS、JavaScript,**不用框架**。三者分工是 HTML 決定畫面上有什麼、CSS 決定長什麼樣子、JavaScript 決定按下去會發生什麼事。另外用 **npm** 安裝 Supabase 的程式庫 `@supabase/supabase-js`,用 **Vite** 建置。
 
-**為什麼:**
+**為什麼不用框架:**
 
 - 這個聊天室只有兩個畫面(輸入代號、聊天室),邏輯單純,用框架是殺雞用牛刀。
-- 不用框架就**不需要「建置」這一步**(建置是把原始碼加工成可上線檔案的過程),檔案寫好就能直接放到 GitHub Pages,出問題的地方更少。
-- 對你來說更好維護:裝的東西少,看到的就是實際運作的東西。
 
-**代價:** 程式變大時要自己整理。所以第 4 節和第 11 節把程式拆成幾個小檔案,每個檔案只做一件事。
+**為什麼用 npm 與 Vite:**
+
+- **程式庫版本有明確記錄**:`package.json` 固定使用 `@supabase/supabase-js` 2.117.2 版,`package-lock.json` 記錄所有相依套件的精確版本,任何人都能重現同樣的結果。
+- **不依賴外部 CDN**:程式庫被打包進網站,不會因為某個免費的程式庫網站掛掉而連不上聊天室。
+- **金鑰在建置時注入**:專案網址與公開金鑰不寫在原始碼裡,而是 build 時由環境變數放進去(見第 8 節)。
+- 建置後的檔案經過壓縮與重新命名,瀏覽器快取也更好處理。
+
+**代價:** 多了建置這一步,所以部署要先 build 才能上線(由 GitHub Actions 自動做,見第 12 節),本機開發要先執行 `npm install`。
 
 ### 3.2 Supabase 用哪個功能
 
@@ -163,7 +169,7 @@ Supabase 有很多功能(資料庫、帳號登入、檔案儲存等)。這個專
 階段二要做的事:
 
 1. 在 Supabase 網站建立一個專案。
-2. 取得專案的網址和公開金鑰(見第 8 節),填進設定檔。
+2. 取得專案的網址和公開金鑰(見第 8 節),設定成 GitHub 的 Variables(部署用)和本機的 `.env.local`(開發用)。
 3. 寫好 Supabase 版的收發零件,功能和假零件完全一樣。
 4. 把畫面程式裡指向假零件的那一行,改成指向真零件。
 5. 重新上傳到 GitHub Pages,用多個裝置實際測試。
@@ -397,8 +403,16 @@ Supabase 的連線同樣靠定時的心跳(定時告訴伺服器「我還連著�
 
 ### 8.4 放在哪裡
 
-- 放在 `js/config.js` 這個設定檔裡,只放**專案網址**和**公開金鑰**這兩項。
-- 因為它們本來就可以公開,這個檔案**可以**提交到 GitHub,不需要特別的保護機制,也不需要 GitHub 的「Secrets」功能(Secrets 是 GitHub 用來存機密內容的保險箱)。
+專案網址與公開金鑰**不寫在原始碼裡**,而是在 build 時由環境變數注入。程式讀取它們的地方是 `src/config.js`(讀 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_PUBLISHABLE_KEY` 兩個變數,Vite 規定要用 `VITE_` 開頭,build 時才會被放進網站)。
+
+| 情境 | 存放位置 |
+|---|---|
+| **部署到 GitHub Pages** | repo 的 Settings → Secrets and variables → Actions → **Variables**,名稱 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_PUBLISHABLE_KEY` |
+| **本機開發** | 專案根目錄的 `.env.local`(不會被 commit,因為 `.gitignore` 擋掉了 `.env.*`)。範例格式在 `.env.example`,只含假的示範值 |
+
+**為什麼放 Variables,不放 Secrets:** 這兩個值本來就是公開的。build 之後它們會被寫進網站的 JavaScript,任何人打開網頁、檢視原始碼都看得到。Secrets(GitHub 存機密內容的保險箱)是給真正不能公開的東西用的,放在這裡反而會讓人誤以為它們是機密。**放進 Variables 不會讓它變成機密**,這點要清楚。
+
+**舊值還在 git 歷史裡**:專案早期把這兩個值直接寫在 `js/config.js` 並 commit 過,所以 git 歷史裡看得到。因為它們本來就是公開值,這沒有安全問題。
 
 ### 8.5 絕對不能公開的,怎麼避免被提交到 GitHub
 
@@ -462,7 +476,7 @@ Supabase 的連線同樣靠定時的心跳(定時告訴伺服器「我還連著�
 | 可點擊的網址 | 避免有人貼惡意連結讓別人誤點 |
 | 提示音、瀏覽器通知 | 保持安靜、低調的氣氛 |
 | 淺色主題 | 風格決定只做深夜深色版,少維護一套 |
-| 自己的伺服器程式 | 讓整個專案維持在「GitHub Pages 加 Supabase 兩個免費服務」就能運作(另外會向 Google Fonts 與 jsDelivr 載入字體與程式庫,見第 2 節),最簡單、最省錢 |
+| 自己的伺服器程式 | 讓整個專案維持在「GitHub Pages 加 Supabase 兩個免費服務」就能運作((另外會向 Google Fonts 載入字體,見第 2 節)),最簡單、最省錢 |
 | 補回斷線期間漏掉的訊息 | 因為不保存,本來就補不回來 |
 
 ---
@@ -473,36 +487,39 @@ Supabase 的連線同樣靠定時的心跳(定時告訴伺服器「我還連著�
 
 ```
 anonymous-chat/
-├── index.html             網頁的入口,使用者打開網址看到的就是它
+├── index.html             網頁的入口(Vite 規定放在根目錄)
+├── vite.config.js         Vite 的設定(用相對路徑,放在 GitHub Pages 子路徑下才找得到檔案)
+├── package.json           套件與指令:dev、build、preview、test;依賴 @supabase/supabase-js 與 vite
+├── package-lock.json      所有套件的精確版本記錄(npm 自動產生,要 commit)
+├── .env.example           環境變數的範例格式,只含假的示範值
 ├── .gitignore             告訴 git 哪些檔案不要上傳(見第 8.5 節)
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml     GitHub Actions 部署流程:push 到 main 就把網站發佈到 GitHub Pages(見第 12 節)
-├── css/
-│   └── style.css          外觀樣式(由 /design 與 /frontend-design 決定內容)
-├── js/
-│   ├── config.js          Supabase 的專案網址與公開金鑰(只放可公開的值,要 commit)
+│       └── deploy.yml     GitHub Actions:build 之後部署到 GitHub Pages(見第 12 節)
+├── src/
 │   ├── main.js            總指揮:決定現在顯示哪個畫面,把各零件串起來
+│   ├── config.js          讀取 Supabase 的專案網址與公開金鑰(來自環境變數,見第 8.4 節)
 │   ├── validate.js        檢查規則:代號、訊息是否合格
 │   ├── transport-mock.js  階段一用的「假收發零件」
-│   ├── transport-supabase.js  階段二用的「真收發零件」
+│   ├── transport-supabase.js  階段二用的「真收發零件」(連 Supabase 的程式)
 │   ├── ui.js              更新畫面:訊息列表、線上名單、捲動、未讀數
-│   └── color.js           決定每個代號顯示什麼顏色
-├── package.json           只用來執行測試(npm test),沒有任何要安裝的套件
-├── .nojekyll              早期用「從分支部署」時用來關掉 Jekyll;改用 GitHub Actions 後不再必要,留著無害
-├── CLAUDE.md              給 Claude Code 的專案說明(開工前先讀這份文件)
+│   ├── color.js           決定每個代號顯示什麼顏色
+│   └── style.css          外觀樣式
 ├── tests/                 驗證檢查規則與假零件是否正確的測試
+├── CLAUDE.md              給 Claude Code 的專案說明(開工前先讀這份文件)
 └── docs/
     ├── requirements.md    需求說明
     ├── design.md          畫面設計(顏色、字體、各畫面的細節)
     └── architecture.md    本文件
 ```
 
+`dist/`(build 的產出)與 `node_modules/`(安裝的套件)和 `.env.local` 都不在 repo 裡,`.gitignore` 擋掉了。
+
 各檔案的職責:
 
 - **`validate.js`** 只做「判斷對不對」,不碰畫面也不碰網路,最容易單獨測試。
 - **`transport-mock.js` 與 `transport-supabase.js`** 遵守第 5 節同一份約定,是可抽換的零件。
-- **`main.js`** 是唯一知道「現在用的是哪一個零件」的地方,階段二只要改這裡的一行(`main.js` 裡還留著階段一的測試開關,連線到 Supabase 時沒有作用,見第 4 節)。
+- **`main.js`** 是唯一知道「現在用的是哪一個零件」的地方,最上面的 `import { createTransport } ...` 那一行決定用哪一個(`main.js` 裡還留著階段一的測試開關,連線到 Supabase 時沒有作用,見第 4 節)。
 
 ---
 
@@ -510,38 +527,53 @@ anonymous-chat/
 
 > **部署**就是把做好的網站放到網路上,讓別人用網址打開。
 
-**為什麼不需要任何建置流程:** 第 3.1 節選了純 HTML/CSS/JS,檔案本身就是最終成品,不需要加工。
+**怎麼部署:用 GitHub Actions build 之後發佈。**
 
-**怎麼部署:用 GitHub Actions。**
+> **GitHub Actions**:GitHub 內建的自動化服務。你 push 之後,它會自動執行 repo 裡寫好的一份「流程檔」,這裡用它來 build 並發佈網站。
 
-> **GitHub Actions**:GitHub 內建的自動化服務。你 push 之後,它會自動執行 repo 裡寫好的一份「流程檔」,這裡用它來把網站發佈出去。
+流程檔是 `.github/workflows/deploy.yml`。每次 push 到 `main` 分支(也可以到 repo 的 Actions 頁籤手動按「Run workflow」),它分兩個工作:
 
-流程檔是 `.github/workflows/deploy.yml`。每次 push 到 `main` 分支(也可以到 repo 的 Actions 頁籤手動按「Run workflow」),它會依序做四件事:
+**build 工作:**
 
 1. 取出 repo 的檔案。
-2. 設定 GitHub Pages。
-3. 把整個 repo 的檔案**原樣**打包上傳,不加工、不建置。`.git` 與 `.github` 資料夾不會上傳(實測 `.github/workflows/deploy.yml` 在網站上是 404);但 `.gitignore`、`.nojekyll` 這類以點開頭的檔案會一起上傳,網站上讀得到(實測回應 200),它們不含機密,沒有影響。
-4. 發佈到 GitHub Pages。
+2. 安裝 Node.js 24(`@supabase/supabase-js` 要求 Node 22 以上)。
+3. `npm ci`:依照 `package-lock.json` 安裝套件。
+4. **檢查 Supabase 設定**:兩個 Variables 任何一個是空的,流程就直接失敗,不會悄悄發佈一個連不上 Supabase 的網站(舊網站維持原樣)。
+5. `npm test`:跑單元測試,不過就不部署。
+6. `npm run build`:用 Vite 打包,產出 `dist/` 資料夾。build 時 Vite 把兩個 Variables 的值寫進網站的程式。
+7. 把 `dist/` 上傳。
 
-流程只拿到最小的權限:讀取 repo 檔案、發佈 Pages,以及向 GitHub 證明這次部署確實來自這個 repo。**不需要設定任何 Secrets**:Supabase 的專案網址與公開金鑰在 `js/config.js`,隨檔案一起部署(見第 8 節)。
+**deploy 工作:** 把上傳的 `dist/` 發佈到 GitHub Pages。
 
-**只需要在 GitHub 網頁上設定一次:**
+流程只拿到最小的權限:讀取 repo 檔案、發佈 Pages,以及向 GitHub 證明這次部署確實來自這個 repo。
 
-1. 打開 repo 頁面,點上方的 **Settings**。
-2. 左側選單點 **Pages**。
-3. 在 **Build and deployment** 的 **Source**,把「Deploy from a branch」改成 **GitHub Actions**。(選好後設定通常會直接生效,沒有 Save 按鈕。)
-4. 之後每次 push 到 `main`,網站會自動更新,通常一到兩分鐘。可以到 repo 的 **Actions** 頁籤看每次部署的結果,綠色勾勾表示成功。
+**在 GitHub 網頁上要設定的(各一次):**
 
-網址仍是 `https://<你的帳號>.github.io/<repo 名稱>/`。
+1. **Pages 的 Source**:Settings → Pages → Build and deployment → Source 選 **GitHub Actions**。
+2. **兩個 Variables**:Settings → Secrets and variables → Actions → 切到 **Variables** 分頁(不是 Secrets)→ **New repository variable**,依序新增:
+   - `VITE_SUPABASE_URL`:Supabase 的專案網址。
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`:Supabase 的公開金鑰(Publishable key)。
+
+   也可以用指令設定:`gh variable set 變數名稱 --body "值"`。
+
+**本機開發與測試:**
+
+| 指令 | 做什麼 |
+|---|---|
+| `npm install` | 安裝套件(第一次、或 `package.json` 變了之後) |
+| 建立 `.env.local` | 參考 `.env.example`,填入自己的兩個值 |
+| `npm run dev` | 啟動開發伺服器,改程式會即時更新 |
+| `npm run build` | 打包成 `dist/`,和 GitHub Actions 做的事一樣 |
+| `npm run preview` | 用打包後的版本預覽,最接近實際上線的樣子 |
+| `npm test` | 執行單元測試 |
 
 **要注意的事:**
 
-- **網址是帶有 repo 名稱的子路徑**,所以網頁裡引用檔案時要用相對路徑(例如 `js/main.js`,不要寫成 `/js/main.js`),否則網頁會找不到檔案。
-- GitHub Pages 的內容是**公開**的,任何知道網址的人都能看到所有被上傳的檔案(包含 `docs/`、`tests/`、`README.md` 等)。這也是為什麼機密金鑰絕對不能放進專案。
-- 用 GitHub Actions 部署時 GitHub 不會再執行 Jekyll,所以 `.nojekyll` 這個檔案已經不是必要的,留著也無害。
-- 流程檔用的是 GitHub 官方 action(`actions/checkout`、`actions/configure-pages`、`actions/upload-pages-artifact`、`actions/deploy-pages`),版本照 GitHub 官方範本。GitHub 日後淘汰舊版時,Actions 頁面會出現警告,屆時再升級版本即可。
+- **網址是帶有 repo 名稱的子路徑**(`https://<帳號>.github.io/<repo 名稱>/`)。`vite.config.js` 用 `base: './'` 讓打包後的檔案都是相對路徑,所以放在子路徑下找得到檔案。
+- GitHub Pages 的內容是**公開**的,任何人都能看到網站的所有檔案,包含打包後的 JavaScript 裡的專案網址與公開金鑰(它們本來就是公開值,見第 8 節)。這也是為什麼機密金鑰絕對不能放進專案。
+- 流程檔用的是 GitHub 官方 action(`actions/checkout`、`actions/setup-node`、`actions/configure-pages`、`actions/upload-pages-artifact`、`actions/deploy-pages`)。目前這幾個 action 還在用較舊的主版本,GitHub 淘汰舊版時,Actions 頁面會出現警告,屆時再一起升級。
 
-階段一和階段二都用同樣的方式部署,階段二只是更新了其中幾個檔案。
+階段一和階段二都用同樣的方式部署。
 
 ---
 
@@ -598,14 +630,15 @@ anonymous-chat/
 
 ### 階段二:接上 Supabase(真零件)
 
-> **目前進度(2026 年 10 月):已通過 18 項,共 30 項。** `[x]` 表示已實測通過,括號寫明是誰用什麼方式測的:「自動化實測」是用兩個瀏覽器分頁對真的 Supabase 跑腳本,「手機實測」是用手機實際操作。`[ ]` 表示還沒測,或只測了一部分,括號裡說明原因。
+> **目前進度(2026 年 10 月):已通過 19 項,共 31 項。** `[x]` 表示已實測通過,括號寫明是誰用什麼方式測的:「自動化實測」是用兩個瀏覽器分頁對真的 Supabase 跑腳本,「手機實測」是用手機實際操作。`[ ]` 表示還沒測,或只測了一部分,括號裡說明原因。
 
 **接線確認**
 
-- [x] 專案網址與公開金鑰已填入 `config.js`(自動化實測:能連上 Supabase 並收發)
-- [x] 專案資料夾中沒有出現管理金鑰與資料庫密碼(commit 前搜尋 `sb_secret_`、`service_role` 與 JWT 格式,只命中文件裡的說明文字)
+- [x] 專案網址與公開金鑰已設成 GitHub 的 Variables(`gh variable list` 確認有 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_PUBLISHABLE_KEY`),本機有 `.env.local`(不會被 commit)
+- [x] 專案資料夾與打包後的 `dist/` 中沒有出現管理金鑰與資料庫密碼(搜尋 `sb_secret_`、`service_role`:原始碼沒有;打包後的程式只有函式庫自己判斷金鑰類型的程式碼,不是金鑰)
 - [x] `.gitignore` 已包含機密檔案類型(`.env`、`.env.*`、`*.key`、`secrets*`)
-- [ ] GitHub Actions 的「Deploy to GitHub Pages」流程執行成功,網站內容有更新(尚未實測,要先在 Settings → Pages 把 Source 改成 GitHub Actions,再 push 一次)
+- [x] 本機 `npm run build` 成功,`npm test` 22 個測試通過;用 `npm run preview` 預覽 build 後的版本,兩個分頁的 15 項聊天測試通過(自動化實測)
+- [ ] GitHub Actions 的「Deploy to GitHub Pages」流程(build + deploy)執行成功,線上網站能正常聊天(push 之後才能確認)
 
 **真實跨裝置聊天**
 

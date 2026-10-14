@@ -1,17 +1,20 @@
-# 用 GitHub Actions 把這個 repo 部署到 GitHub Pages。
+# 用 GitHub Actions 把網站 build 之後部署到 GitHub Pages。
 #
-# 這個專案不需要建置(build):網站就是 repo 裡的 HTML、CSS、JavaScript 檔案本身,
-# 所以這個流程只做三件事:取出 repo 的檔案 → 原樣打包上傳 → 發佈到 GitHub Pages。
-# 流程改寫自 GitHub 官方範本「Deploy static content to Pages」。
+# 流程分兩個工作:
+#   build  :安裝套件(npm ci)→ 檢查 Supabase 設定 → 跑測試 → 用 Vite 打包(npm run build)→ 上傳 dist/
+#   deploy :把上傳的 dist/ 發佈到 GitHub Pages
+#
+# Supabase 的專案網址與公開金鑰存放在 repo 的 Settings → Secrets and variables → Actions → Variables
+# (名稱 VITE_SUPABASE_URL、VITE_SUPABASE_PUBLISHABLE_KEY),build 時注入到網站的程式裡。
+# 這兩個值本來就是公開的(會被打包進網站的 JavaScript),所以放 Variables,不是 Secrets。
 #
 # 使用前提:repo 的 Settings → Pages → Build and deployment → Source 要選「GitHub Actions」。
-# 金鑰不在這裡:Supabase 的專案網址與公開金鑰在 js/config.js,隨檔案一起部署,
-# 不需要設定任何 Secrets。見 docs/architecture.md 第 8 節與第 12 節。
+# 見 docs/architecture.md 第 8 節與第 12 節。
 
 name: Deploy to GitHub Pages
 
 on:
-  # push 到 main 分支就自動部署
+  # push 到 main 分支就自動 build 並部署
   push:
     branches: [main]
   # 也可以到 Actions 頁籤手動按「Run workflow」重新部署
@@ -29,23 +32,54 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # build 時由 Vite 讀取,寫進網站的程式裡
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: 取出 repo 的檔案
+        uses: actions/checkout@v4
+
+      - name: 安裝 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24 # @supabase/supabase-js 要求 Node 22 以上
+          cache: npm
+
+      - name: 安裝套件
+        run: npm ci
+
+      - name: 檢查 Supabase 設定
+        # 沒設定 Variables 就直接失敗,不要悄悄發佈一個連不上 Supabase 的網站(舊網站會維持原樣)
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::缺少 Variables:請到 Settings → Secrets and variables → Actions → Variables 設定 VITE_SUPABASE_URL 與 VITE_SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+
+      - name: 跑測試
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: 設定 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上傳 dist 當作網站內容
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: 取出 repo 的檔案
-        uses: actions/checkout@v4
-
-      - name: 設定 Pages
-        uses: actions/configure-pages@v5
-
-      - name: 上傳整個 repo 當作網站內容(不需要 build)
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-
       - name: 發佈到 GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

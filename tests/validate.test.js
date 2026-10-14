@@ -6,8 +6,8 @@ import {
   nicknameKey,
   validateMessage,
   validateNickname,
-} from '../js/validate.js';
-import { PALETTE, colorFor } from '../js/color.js';
+} from '../src/validate.js';
+import { PALETTE, colorFor } from '../src/color.js';
 
 test('代號:空白、只有空格都不行', () => {
   assert.equal(validateNickname('').reason, 'empty');
@@ -92,7 +92,7 @@ test('顏色:同一個代號永遠同一個顏色,且都在色盤裡', () => {
 });
 
 test('收訊息的最短間隔比送出端短,才容得下網路延遲', async () => {
-  const { RECEIVE_INTERVAL_MS, SEND_INTERVAL_MS } = await import('../js/validate.js');
+  const { RECEIVE_INTERVAL_MS, SEND_INTERVAL_MS } = await import('../src/validate.js');
   assert.ok(RECEIVE_INTERVAL_MS < SEND_INTERVAL_MS);
   assert.ok(RECEIVE_INTERVAL_MS >= 500); // 也不能短到失去擋洗版的作用
 });

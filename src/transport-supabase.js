@@ -11,10 +11,9 @@
 //   Broadcast:傳聊天訊息(事件名稱 message,Supabase 不保存)
 //   Presence :線上名單、進出提示、斷線偵測
 
-// Supabase 官方函式庫 @supabase/supabase-js,從 jsDelivr CDN 載入,所以不需要 npm install 或打包。
-// 版本固定(不要寫成 @2 或 latest,避免哪天悄悄換版本)。如果 CDN 連不上,整支程式都載入不了,
-// index.html 會在輸入代號畫面顯示「程式載入失敗」的提示(見 chatLoadFailed)。
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';
+// Supabase 官方函式庫 @supabase/supabase-js,用 npm 安裝(版本固定在 package.json),
+// 由 Vite 在 build 時打包進網站,不再從 CDN 載入。
+import { createClient } from '@supabase/supabase-js';
 
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
 import { nicknameKey, validateNickname, ROOM_LIMIT } from './validate.js';
