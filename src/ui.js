@@ -3,7 +3,15 @@
 // 所有來自別人的文字一律用 textContent 放進畫面,不會被當成 HTML 執行。
 
 import { colorFor } from './color.js';
-import { NICK_MAX, TEXT_MAX, TYPING_SEND_INTERVAL_MS, countChars, validateNickname, validateMessage } from './validate.js';
+import {
+  NICK_MAX,
+  REACTIONS,
+  TEXT_MAX,
+  TYPING_SEND_INTERVAL_MS,
+  countChars,
+  validateNickname,
+  validateMessage,
+} from './validate.js';
 
 const MAX_ITEMS = 200; // 畫面上最多保留幾則(含系統提示),更舊的移除
 const NEAR_BOTTOM_PX = 48;
@@ -11,7 +19,7 @@ const HINT_MS = 1500;
 
 const $ = (id) => document.getElementById(id);
 
-export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping }) {
+export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onReact }) {
   const el = {
     login: $('screen-login'),
     full: $('screen-full'),
@@ -53,6 +61,7 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping }) {
   let busy = false; // 正在連線,鎖住輸入
   let pending = 0; // 往上看舊訊息時累積的新訊息數
   let hintTimer = null;
+  const byId = new Map(); // 訊息編號 → 畫面上的訊息元素(更新表情回應用)
   let typingActive = false; // 我正在輸入(已通知過大家)
   let lastTypingSent = 0;
 
@@ -181,7 +190,11 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping }) {
     // 超過上限就從最舊的開始移除。如果使用者正在往上看,要補償捲動位置,畫面才不會跳
     if (el.inner.children.length > MAX_ITEMS) {
       const before = el.log.scrollHeight;
-      while (el.inner.children.length > MAX_ITEMS) el.inner.firstElementChild.remove();
+      while (el.inner.children.length > MAX_ITEMS) {
+        const old = el.inner.firstElementChild;
+        if (old.dataset.id) byId.delete(old.dataset.id);
+        old.remove();
+      }
       if (!stick) el.log.scrollTop -= before - el.log.scrollHeight;
     }
     syncEmpty();
@@ -201,9 +214,10 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping }) {
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   }
 
-  function addMessage({ nickname, text, sentAt, mine }) {
+  function addMessage({ id, nickname, text, sentAt, mine }) {
     const root = document.createElement('div');
     root.className = `msg ${mine ? 'mine' : 'theirs'}`;
+    root.dataset.id = id;
 
     const head = document.createElement('div');
     head.className = 'msg-head';
@@ -222,9 +236,46 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping }) {
     bubble.className = 'bubble';
     bubble.textContent = text;
 
-    root.append(head, bubble);
+    // 表情回應:三個按鈕,按一下加上、再按一下取消;有人回應時顯示人數
+    const bar = document.createElement('div');
+    bar.className = 'reactions';
+    for (const emoji of REACTIONS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'react';
+      b.dataset.emoji = emoji;
+      b.setAttribute('aria-pressed', 'false');
+      b.setAttribute('aria-label', `${emoji} 回應`);
+      const e = document.createElement('span');
+      e.textContent = emoji;
+      const n = document.createElement('span');
+      n.className = 'n';
+      b.append(e, n);
+      bar.append(b);
+    }
+
+    root.append(head, bubble, bar);
+    byId.set(id, root);
     append(root, { mine, countNew: !mine });
   }
+
+  // summary: { 表情: { count, mine } }。更新某則訊息下面的表情回應
+  function updateReactions(msgId, summary) {
+    const root = byId.get(msgId);
+    if (!root) return;
+    for (const b of root.querySelectorAll('.react')) {
+      const s = summary[b.dataset.emoji] ?? { count: 0, mine: false };
+      b.querySelector('.n').textContent = s.count > 0 ? String(s.count) : '';
+      b.classList.toggle('has', s.count > 0);
+      b.setAttribute('aria-pressed', String(s.mine));
+    }
+  }
+
+  el.inner.addEventListener('click', (e) => {
+    const b = e.target.closest?.('.react');
+    const root = b?.closest('.msg');
+    if (b && root) onReact?.(root.dataset.id, b.dataset.emoji);
+  });
 
   function addSystem(text) {
     const node = document.createElement('div');
@@ -235,6 +286,7 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping }) {
 
   function clearLog() {
     el.inner.replaceChildren();
+    byId.clear();
     hideNewMsg();
     syncEmpty();
   }
@@ -415,6 +467,8 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping }) {
     setRetryBusy,
     setLoginBusy,
     addMessage,
+    hasMessage: (id) => byId.has(id),
+    updateReactions,
     addSystem,
     clearLog,
     renderRoster,

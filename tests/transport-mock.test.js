@@ -6,7 +6,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function record(t) {
   const log = [];
-  for (const name of ['onMessage', 'onTyping', 'onJoin', 'onLeave', 'onRosterChange', 'onKicked', 'onDisconnect', 'onReconnect']) {
+  for (const name of ['onMessage', 'onTyping', 'onReaction', 'onJoin', 'onLeave', 'onRosterChange', 'onKicked', 'onDisconnect', 'onReconnect']) {
     t.on(name, (...a) => log.push([name, ...a]));
   }
   return log;
@@ -186,6 +186,29 @@ test('正在輸入:對方收到通知,自己不會收到;還沒進入時回傳 f
     a.sendTyping(false);
     await sleep(80);
     assert.deepEqual(logB.filter((e) => e[0] === 'onTyping').at(-1)[1], { nickname: '甲', typing: false });
+  } finally {
+    a.leave();
+    b.leave();
+  }
+});
+
+test('表情回應:所有人(包含自己)都收到,取消也是;還沒進入時回傳 false', async () => {
+  const a = createTransport();
+  const b = createTransport();
+  try {
+    assert.equal(a.sendReaction('m1', '👍', true), false);
+    await a.join('甲');
+    await b.join('乙');
+    const logA = record(a);
+    const logB = record(b);
+    assert.equal(a.sendReaction('m1', '👍', true), true);
+    await sleep(80);
+    const wantOn = { msgId: 'm1', emoji: '👍', nickname: '甲', on: true };
+    assert.deepEqual(logA.filter((e) => e[0] === 'onReaction').map((e) => e[1]), [wantOn]); // 自己也收到
+    assert.deepEqual(logB.filter((e) => e[0] === 'onReaction').map((e) => e[1]), [wantOn]);
+    a.sendReaction('m1', '👍', false);
+    await sleep(80);
+    assert.equal(logB.filter((e) => e[0] === 'onReaction').at(-1)[1].on, false);
   } finally {
     a.leave();
     b.leave();

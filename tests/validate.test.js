@@ -4,6 +4,8 @@ import {
   createRateLimiter,
   isValidIncoming,
   isValidTyping,
+  isValidReaction,
+  REACTIONS,
   nicknameKey,
   validateMessage,
   validateNickname,
@@ -108,4 +110,21 @@ test('正在輸入通知:格式正確才接受', () => {
   assert.equal(isValidTyping({ nickname: 123, typing: true }), false);
   assert.equal(isValidTyping({ nickname: ' 小華', typing: true }), false); // 代號沒有去空格
   assert.equal(isValidTyping({ nickname: '一二三四五六七八九十甲乙丙', typing: true }), false); // 超過 12 字
+});
+
+test('表情回應:只有三種表情,格式正確才接受', () => {
+  assert.equal(REACTIONS.length, 3);
+  const good = { msgId: 'm1', emoji: REACTIONS[0], nickname: '小華', on: true };
+  assert.equal(isValidReaction(good), true);
+  for (const emoji of REACTIONS) assert.equal(isValidReaction({ ...good, emoji }), true);
+  assert.equal(isValidReaction({ ...good, on: false }), true);
+  assert.equal(isValidReaction(null), false);
+  assert.equal(isValidReaction({ ...good, emoji: '😡' }), false); // 不在清單內的表情
+  assert.equal(isValidReaction({ ...good, emoji: '<b>' }), false);
+  assert.equal(isValidReaction({ ...good, msgId: '' }), false);
+  assert.equal(isValidReaction({ ...good, msgId: 'x'.repeat(65) }), false);
+  assert.equal(isValidReaction({ ...good, msgId: 5 }), false);
+  assert.equal(isValidReaction({ ...good, on: 'yes' }), false);
+  assert.equal(isValidReaction({ ...good, nickname: ' 小華' }), false);
+  assert.equal(isValidReaction({ msgId: 'm1', emoji: REACTIONS[0], nickname: '小華' }), false); // 缺 on
 });

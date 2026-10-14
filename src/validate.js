@@ -7,6 +7,8 @@ export const SEND_INTERVAL_MS = 1000;
 // 兩則本來隔 1 秒送出的訊息,有時會在不到 1 秒內先後到達。
 export const RECEIVE_INTERVAL_MS = 700;
 export const ROOM_LIMIT = 50;
+// 可以用的表情回應(用碼點組出來,避免原始碼裡的 emoji 被編輯器改掉)
+export const REACTIONS = [String.fromCodePoint(0x1f44d), String.fromCodePoint(0x2764, 0xfe0f), String.fromCodePoint(0x1f602)];
 export const TYPING_SEND_INTERVAL_MS = 2000; // 輸入中時,最多每隔這麼久通知一次大家
 export const TYPING_EXPIRE_MS = 4000; // 收到「正在輸入」後,這麼久沒再收到更新就當作停了
 
@@ -80,6 +82,16 @@ export function isValidIncoming(msg) {
 // 收到別人的「正在輸入」通知時先檢查格式。
 export function isValidTyping(p) {
   if (!p || typeof p !== 'object' || typeof p.typing !== 'boolean') return false;
+  if (typeof p.nickname !== 'string') return false;
+  const nick = validateNickname(p.nickname);
+  return nick.ok && nick.value === p.nickname;
+}
+
+// 收到別人的「表情回應」時先檢查格式:哪一則訊息、哪個表情、誰、加上或取消。
+export function isValidReaction(p) {
+  if (!p || typeof p !== 'object' || typeof p.on !== 'boolean') return false;
+  if (typeof p.msgId !== 'string' || p.msgId === '' || p.msgId.length > 64) return false;
+  if (!REACTIONS.includes(p.emoji)) return false;
   if (typeof p.nickname !== 'string') return false;
   const nick = validateNickname(p.nickname);
   return nick.ok && nick.value === p.nickname;

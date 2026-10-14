@@ -9,6 +9,7 @@ import {
   TYPING_EXPIRE_MS,
   createRateLimiter,
   isValidIncoming,
+  isValidReaction,
   isValidTyping,
   nicknameKey,
   validateMessage,
@@ -89,6 +90,27 @@ function clearAllTyping() {
   renderTyping();
 }
 
+// 表情回應:訊息編號 → 表情 → 回應的人(代號比對值)。訊息不保存,所以這些也只存在這個頁面的記憶體裡
+const reactions = new Map();
+const pendingReactions = new Set(); // 我送出、還在等事件回來的回應(msgId|表情|加上或取消)
+const reactionLimiter = createRateLimiter({ max: 5, windowMs: 1000 });
+function reactionSummary(msgId) {
+  const out = {};
+  for (const [emoji, who] of reactions.get(msgId) ?? []) out[emoji] = { count: who.size, mine: who.has(me.key) };
+  return out;
+}
+function applyReaction(msgId, emoji, key, on) {
+  if (!ui.hasMessage(msgId)) return; // 這則訊息我沒有(進來之前的、或已被移除),忽略
+  let byEmoji = reactions.get(msgId);
+  if (!byEmoji) reactions.set(msgId, (byEmoji = new Map()));
+  let who = byEmoji.get(emoji);
+  if (!who) byEmoji.set(emoji, (who = new Set()));
+  if (on) who.add(key);
+  else who.delete(key);
+  if (reactions.size > 300) reactions.delete(reactions.keys().next().value); // 最舊的不要了,避免一直長大
+  ui.updateReactions(msgId, reactionSummary(msgId));
+}
+
 let me = null; // { nickname, key }
 let inChat = false;
 let online = true;
@@ -137,6 +159,14 @@ const ui = createUI({
   onTyping(isTyping) {
     if (online) transport.sendTyping(isTyping);
   },
+  onReact(msgId, emoji) {
+    if (!online || !inChat) return;
+    const mineNow = reactions.get(msgId)?.get(emoji)?.has(me.key) ?? false;
+    const on = !mineNow;
+    const pending = `${msgId}|${emoji}|${on}`;
+    if (pendingReactions.has(pending) || !reactionLimiter.tryPass('me')) return;
+    if (transport.sendReaction(msgId, emoji, on)) pendingReactions.add(pending);
+  },
 });
 
 function resetSession() {
@@ -145,6 +175,8 @@ function resetSession() {
   online = true;
   roster = [];
   sentIds.clear();
+  reactions.clear();
+  pendingReactions.clear();
   clearAllTyping();
   unread = 0;
   updateTitle();
@@ -221,7 +253,7 @@ transport.on('onMessage', (msg) => {
     if (!receiveLimiter.tryPass(key)) return;
   }
   if (!mine) clearTypingUser(key); // 他的訊息送出了,就不再顯示他正在輸入
-  ui.addMessage({ nickname: msg.nickname, text: msg.text, sentAt: msg.sentAt, mine });
+  ui.addMessage({ id: msg.id, nickname: msg.nickname, text: msg.text, sentAt: msg.sentAt, mine });
   if (!mine && document.hidden) {
     unread += 1;
     updateTitle();
@@ -236,6 +268,19 @@ transport.on('onTyping', (p) => {
   if (!typingLimiter.tryPass(key)) return;
   if (p.typing) setTypingUser(key, p.nickname);
   else clearTypingUser(key);
+});
+
+transport.on('onReaction', (p) => {
+  if (!inChat || !isValidReaction(p)) return;
+  const key = nicknameKey(p.nickname);
+  if (key === me.key) {
+    // 代號是自己的,但不是我送出的:有人冒用我的代號,丟掉
+    if (!pendingReactions.delete(`${p.msgId}|${p.emoji}|${p.on}`)) return;
+  } else {
+    if (!roster.some((r) => nicknameKey(r.nickname) === key)) return; // 不在線上名單的人,丟掉
+    if (!reactionLimiter.tryPass(key)) return;
+  }
+  applyReaction(p.msgId, p.emoji, key, p.on);
 });
 
 transport.on('onJoin', (nickname) => {

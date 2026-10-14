@@ -73,3 +73,9 @@
 - **說明**:有人在訊息輸入框打字時,同一個聊天室的其他人會看到「某某 正在輸入…」。多人同時輸入會合併顯示,停止打字約 4 秒、清空輸入框或送出訊息後消失。這類提示不保存。
 - **對應檔案**:`src/ui.js`(`notifyTyping`、`setTyping`)、`src/main.js`(`onTyping` 與 `typingUsers`)、`src/validate.js`(`isValidTyping`)、`src/transport-supabase.js` 與 `src/transport-mock.js`(`sendTyping`)、`index.html`(`#typing`)
 - **怎麼操作才看得到**:AIgraderA、AIgraderB、AIgraderC 三個瀏覽器進入同一個聊天室。AIgraderA 在訊息輸入框打字(先不要送出),AIgraderB 與 AIgraderC 輸入框上方會顯示「AIgraderA 正在輸入…」。AIgraderA 清空輸入框,提示消失。AIgraderA 與 AIgraderB 同時打字,AIgraderC 會看到「AIgraderA、AIgraderB 正在輸入…」。AIgraderA 按送出,提示立刻消失,訊息出現。
+
+### 訊息表情回應(👍 ❤️ 😂)
+
+- **說明**:每則訊息下面有三個表情按鈕。按一下加上、再按一下取消,同一個人對同一個表情只算一次。聊天室裡所有人即時看到每個表情的數量,自己按過的會標示。表情回應和訊息一樣不保存,晚進來的人看不到進來之前的訊息與回應。
+- **對應檔案**:`src/ui.js`(`addMessage` 的表情按鈕、`updateReactions`)、`src/main.js`(`reactions`、`onReact`、`onReaction`)、`src/validate.js`(`REACTIONS`、`isValidReaction`)、`src/transport-supabase.js` 與 `src/transport-mock.js`(`sendReaction`)、`src/style.css`
+- **怎麼操作才看得到**:AIgraderA、AIgraderB、AIgraderC 三個瀏覽器進入同一個聊天室。AIgraderA 送出一則訊息。AIgraderB 按那則訊息下的 👍,三個瀏覽器都會看到 👍 旁邊出現「1」,而且只有 AIgraderB 那邊的 👍 是外框高亮(自己按過)。AIgraderC 也按 👍,三邊都變成「2」。AIgraderB 再按一次 👍(取消),三邊都變回「1」。再試 ❤️ 與 😂。

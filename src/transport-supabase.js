@@ -6,7 +6,8 @@
 //   send(text)     → 送出的訊息編號(id);沒送出(還沒進入、連線中斷)就回傳 false
 //   on(eventName, handler)
 //   sendTyping(isTyping) → 通知大家「我正在輸入 / 停了」(Broadcast 事件 typing,不保存)
-//   事件:onMessage、onTyping、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
+//   sendReaction(msgId, emoji, on) → 對某則訊息加上(on=true)或取消表情回應(Broadcast 事件 reaction,不保存);自己也會從 onReaction 收到
+//   事件:onMessage、onTyping、onReaction、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
 //
 // 只用 Realtime 的兩個功能:
 //   Broadcast:傳聊天訊息(事件名稱 message,Supabase 不保存)
@@ -24,7 +25,7 @@ const SUBSCRIBE_TIMEOUT_MS = 10000; // 連上頻道最多等多久
 const SYNC_WAIT_MS = 3000; // 等線上名單同步最多等多久
 const RACE_MS = 700; // 登記後再等一下,看有沒有人同一瞬間搶同一個代號
 
-const EVENTS = ['onMessage', 'onTyping', 'onJoin', 'onLeave', 'onRosterChange', 'onReconnect', 'onDisconnect', 'onKicked'];
+const EVENTS = ['onMessage', 'onTyping', 'onReaction', 'onJoin', 'onLeave', 'onRosterChange', 'onReconnect', 'onDisconnect', 'onKicked'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export function createTransport() {
@@ -222,6 +223,9 @@ export function createTransport() {
       ch.on('broadcast', { event: 'typing' }, ({ payload }) => {
         if (ch === channel && joined) emit('onTyping', payload);
       });
+      ch.on('broadcast', { event: 'reaction' }, ({ payload }) => {
+        if (ch === channel && joined) emit('onReaction', payload);
+      });
       ch.on('presence', { event: 'sync' }, () => handleSync(ch));
 
       await subscribe(ch);
@@ -288,6 +292,14 @@ export function createTransport() {
     return true;
   }
 
+  function sendReaction(msgId, emoji, on) {
+    if (!joined || !online || !channel) return false;
+    channel
+      .send({ type: 'broadcast', event: 'reaction', payload: { msgId, emoji, nickname: me.nickname, on: !!on } })
+      .catch((err) => console.error('送出表情回應失敗', err));
+    return true;
+  }
+
   // 頁面關閉或重新整理時,先主動離開頻道,讓伺服器馬上清掉這個分頁的登記,不要等它自己發現連線斷了。
   // 這樣重新整理後自動進入時,不會被殘留的舊登記誤判成「代號重複」而要等待重試
   // (實測 8 次:重新整理後回到聊天室,從約 4.2 秒降到約 2.7 秒;「離開」訊息不一定每次都來得及送出,偶爾還是會慢)。
@@ -302,5 +314,5 @@ export function createTransport() {
     });
   }
 
-  return { join, leave, send, sendTyping, on };
+  return { join, leave, send, sendTyping, sendReaction, on };
 }
