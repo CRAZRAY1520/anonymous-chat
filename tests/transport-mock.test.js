@@ -6,7 +6,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function record(t) {
   const log = [];
-  for (const name of ['onMessage', 'onTyping', 'onReaction', 'onJoin', 'onLeave', 'onRosterChange', 'onKicked', 'onDisconnect', 'onReconnect']) {
+  for (const name of ['onMessage', 'onTyping', 'onReaction', 'onRecall', 'onJoin', 'onLeave', 'onRosterChange', 'onKicked', 'onDisconnect', 'onReconnect']) {
     t.on(name, (...a) => log.push([name, ...a]));
   }
   return log;
@@ -209,6 +209,26 @@ test('表情回應:所有人(包含自己)都收到,取消也是;還沒進入時
     a.sendReaction('m1', '👍', false);
     await sleep(80);
     assert.equal(logB.filter((e) => e[0] === 'onReaction').at(-1)[1].on, false);
+  } finally {
+    a.leave();
+    b.leave();
+  }
+});
+
+test('收回訊息:所有人(包含自己)都收到;還沒進入時回傳 false', async () => {
+  const a = createTransport();
+  const b = createTransport();
+  try {
+    assert.equal(a.recall('m1'), false);
+    await a.join('甲');
+    await b.join('乙');
+    const logA = record(a);
+    const logB = record(b);
+    assert.equal(a.recall('m1'), true);
+    await sleep(80);
+    const want = { msgId: 'm1', nickname: '甲' };
+    assert.deepEqual(logA.filter((e) => e[0] === 'onRecall').map((e) => e[1]), [want]);
+    assert.deepEqual(logB.filter((e) => e[0] === 'onRecall').map((e) => e[1]), [want]);
   } finally {
     a.leave();
     b.leave();

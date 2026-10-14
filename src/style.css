@@ -241,6 +241,23 @@ button:disabled { cursor: not-allowed; }
 .theirs .bubble { background: var(--bubble); border-radius: 4px 16px 16px 16px; }
 .mine .bubble { background: var(--mine); border-radius: 16px 4px 16px 16px; }
 
+/* 收回自己的訊息 */
+.recall {
+  min-height: 24px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  color: var(--muted2);
+}
+.recall:hover, .recall:focus-visible { color: var(--lamp); }
+.msg.recalled .bubble {
+  background: transparent;
+  border: 1px dashed var(--line);
+  color: var(--muted2);
+  font-style: italic;
+}
+
 /* 表情回應 */
 .reactions { display: flex; gap: 6px; margin-top: 6px; }
 .msg.mine .reactions { justify-content: flex-end; }

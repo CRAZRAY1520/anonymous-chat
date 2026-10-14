@@ -9,7 +9,8 @@
 //
 //   sendTyping(isTyping) → 通知大家「我正在輸入 / 停了」(不保存、不回傳給自己)
 //   sendReaction(msgId, emoji, on) → 對某則訊息加上(on=true)或取消表情回應;自己也會從 onReaction 收到
-//   事件:onMessage、onTyping、onReaction、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
+//   recall(msgId) → 收回自己送出的某則訊息;自己也會從 onRecall 收到
+//   事件:onMessage、onTyping、onReaction、onRecall、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
 
 import { nicknameKey, ROOM_LIMIT } from './validate.js';
 
@@ -25,7 +26,7 @@ const DEFAULT_TIMING = {
 const GATHER_MS = 400; // 進入前等多久,收集目前的線上名單(模擬等 Presence 同步)
 const RACE_MS = 300; // 登記後再檢查一次有沒有人同時搶同一個代號
 
-const EVENTS = ['onMessage', 'onTyping', 'onReaction', 'onJoin', 'onLeave', 'onRosterChange', 'onReconnect', 'onDisconnect', 'onKicked'];
+const EVENTS = ['onMessage', 'onTyping', 'onReaction', 'onRecall', 'onJoin', 'onLeave', 'onRosterChange', 'onReconnect', 'onDisconnect', 'onKicked'];
 
 const BOT_NAMES = ['夜貓', '小華', '阿凱'];
 const BOT_LINES = [
@@ -144,6 +145,9 @@ export function createTransport({ bots = false, crowd = 0, timing = {} } = {}) {
         break;
       case 'reaction':
         if (joined) emit('onReaction', data.payload);
+        break;
+      case 'recall':
+        if (joined) emit('onRecall', data.payload);
         break;
       case 'chat': {
         const msg = data.message;
@@ -340,6 +344,14 @@ export function createTransport({ bots = false, crowd = 0, timing = {} } = {}) {
     return true;
   }
 
+  function recall(msgId) {
+    if (!joined || !online) return false;
+    const payload = { msgId, nickname: me.nickname };
+    post({ type: 'recall', payload });
+    queueMicrotask(() => emit('onRecall', payload)); // 自己也從事件收到,畫面統一從這裡更新
+    return true;
+  }
+
   // 關掉分頁時趕快說再見,別人就不用等逾時
   if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', () => {
@@ -389,5 +401,5 @@ export function createTransport({ bots = false, crowd = 0, timing = {} } = {}) {
     setCrowd,
   };
 
-  return { join, leave, send, sendTyping, sendReaction, on, dev };
+  return { join, leave, send, sendTyping, sendReaction, recall, on, dev };
 }

@@ -79,3 +79,9 @@
 - **說明**:每則訊息下面有三個表情按鈕。按一下加上、再按一下取消,同一個人對同一個表情只算一次。聊天室裡所有人即時看到每個表情的數量,自己按過的會標示。表情回應和訊息一樣不保存,晚進來的人看不到進來之前的訊息與回應。
 - **對應檔案**:`src/ui.js`(`addMessage` 的表情按鈕、`updateReactions`)、`src/main.js`(`reactions`、`onReact`、`onReaction`)、`src/validate.js`(`REACTIONS`、`isValidReaction`)、`src/transport-supabase.js` 與 `src/transport-mock.js`(`sendReaction`)、`src/style.css`
 - **怎麼操作才看得到**:AIgraderA、AIgraderB、AIgraderC 三個瀏覽器進入同一個聊天室。AIgraderA 送出一則訊息。AIgraderB 按那則訊息下的 👍,三個瀏覽器都會看到 👍 旁邊出現「1」,而且只有 AIgraderB 那邊的 👍 是外框高亮(自己按過)。AIgraderC 也按 👍,三邊都變成「2」。AIgraderB 再按一次 👍(取消),三邊都變回「1」。再試 ❤️ 與 😂。
+
+### 收回自己的訊息
+
+- **說明**:自己送出的訊息旁邊有「收回」按鈕。按下去後,聊天室所有人的畫面,那則訊息的內容都變成「已收回」,原本的文字消失,表情回應也一併拿掉。只有送出那則訊息的人能收回,別人的訊息沒有這個按鈕。訊息仍然不保存。
+- **對應檔案**:`src/ui.js`(「收回」按鈕、`markRecalled`)、`src/main.js`(`authors`、`onRecall`、`recalledIds`)、`src/validate.js`(`isValidRecall`)、`src/transport-supabase.js` 與 `src/transport-mock.js`(`recall`)、`src/style.css`
+- **怎麼操作才看得到**:AIgraderA、AIgraderB、AIgraderC 三個瀏覽器進入同一個聊天室。AIgraderA 送出「這句話我要收回」。三邊都看到這則訊息,只有 AIgraderA 那邊的訊息旁邊有「收回」按鈕(AIgraderB、AIgraderC 看不到)。AIgraderA 按「收回」,三個瀏覽器裡那則訊息立刻變成虛線框的「已收回」。

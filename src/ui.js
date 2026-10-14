@@ -19,7 +19,7 @@ const HINT_MS = 1500;
 
 const $ = (id) => document.getElementById(id);
 
-export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onReact }) {
+export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onReact, onRecall }) {
   const el = {
     login: $('screen-login'),
     full: $('screen-full'),
@@ -228,9 +228,17 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onRea
     const time = document.createElement('span');
     time.className = 'msg-time';
     time.textContent = formatTime(sentAt);
-    // 自己的訊息:時間在前、代號在後(靠右排列)
-    if (mine) head.append(time, name);
-    else head.append(name, time);
+    // 自己的訊息:時間在前、代號在後(靠右排列),最前面多一個「收回」按鈕
+    if (mine) {
+      const recall = document.createElement('button');
+      recall.type = 'button';
+      recall.className = 'recall';
+      recall.textContent = '收回';
+      recall.setAttribute('aria-label', '收回這則訊息');
+      head.append(recall, time, name);
+    } else {
+      head.append(name, time);
+    }
 
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
@@ -271,10 +279,22 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onRea
     }
   }
 
+  // 訊息被收回:所有人的畫面都把內容換成「已收回」,拿掉表情回應與「收回」按鈕
+  function markRecalled(msgId) {
+    const root = byId.get(msgId);
+    if (!root || root.classList.contains('recalled')) return;
+    root.classList.add('recalled');
+    root.querySelector('.bubble').textContent = '已收回';
+    root.querySelector('.reactions')?.remove();
+    root.querySelector('.recall')?.remove();
+  }
+
   el.inner.addEventListener('click', (e) => {
-    const b = e.target.closest?.('.react');
-    const root = b?.closest('.msg');
-    if (b && root) onReact?.(root.dataset.id, b.dataset.emoji);
+    const root = e.target.closest?.('.msg');
+    if (!root) return;
+    const react = e.target.closest('.react');
+    if (react) onReact?.(root.dataset.id, react.dataset.emoji);
+    else if (e.target.closest('.recall')) onRecall?.(root.dataset.id);
   });
 
   function addSystem(text) {
@@ -469,6 +489,7 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onRea
     addMessage,
     hasMessage: (id) => byId.has(id),
     updateReactions,
+    markRecalled,
     addSystem,
     clearLog,
     renderRoster,

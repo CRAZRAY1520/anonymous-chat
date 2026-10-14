@@ -5,6 +5,7 @@ import {
   isValidIncoming,
   isValidTyping,
   isValidReaction,
+  isValidRecall,
   REACTIONS,
   nicknameKey,
   validateMessage,
@@ -127,4 +128,16 @@ test('表情回應:只有三種表情,格式正確才接受', () => {
   assert.equal(isValidReaction({ ...good, on: 'yes' }), false);
   assert.equal(isValidReaction({ ...good, nickname: ' 小華' }), false);
   assert.equal(isValidReaction({ msgId: 'm1', emoji: REACTIONS[0], nickname: '小華' }), false); // 缺 on
+});
+
+test('收回訊息:格式正確才接受', () => {
+  assert.equal(isValidRecall({ msgId: 'm1', nickname: '小華' }), true);
+  assert.equal(isValidRecall(null), false);
+  assert.equal(isValidRecall('recall'), false);
+  assert.equal(isValidRecall({ nickname: '小華' }), false);
+  assert.equal(isValidRecall({ msgId: '', nickname: '小華' }), false);
+  assert.equal(isValidRecall({ msgId: 'x'.repeat(65), nickname: '小華' }), false);
+  assert.equal(isValidRecall({ msgId: 7, nickname: '小華' }), false);
+  assert.equal(isValidRecall({ msgId: 'm1', nickname: ' 小華' }), false);
+  assert.equal(isValidRecall({ msgId: 'm1', nickname: 5 }), false);
 });

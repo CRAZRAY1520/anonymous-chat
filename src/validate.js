@@ -97,6 +97,15 @@ export function isValidReaction(p) {
   return nick.ok && nick.value === p.nickname;
 }
 
+// 收到別人的「收回訊息」通知時先檢查格式:收回哪一則、是誰要收回。
+export function isValidRecall(p) {
+  if (!p || typeof p !== 'object') return false;
+  if (typeof p.msgId !== 'string' || p.msgId === '' || p.msgId.length > 64) return false;
+  if (typeof p.nickname !== 'string') return false;
+  const nick = validateNickname(p.nickname);
+  return nick.ok && nick.value === p.nickname;
+}
+
 // 滑動時間窗的頻率限制:windowMs 內最多通過 max 次。
 export function createRateLimiter({ max = 1, windowMs = SEND_INTERVAL_MS, now = Date.now } = {}) {
   const hits = new Map();
