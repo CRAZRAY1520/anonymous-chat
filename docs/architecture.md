@@ -630,7 +630,7 @@ anonymous-chat/
 
 ### 階段二:接上 Supabase(真零件)
 
-> **目前進度(2026 年 10 月):已通過 19 項,共 31 項。** `[x]` 表示已實測通過,括號寫明是誰用什麼方式測的:「自動化實測」是用兩個瀏覽器分頁對真的 Supabase 跑腳本,「手機實測」是用手機實際操作。`[ ]` 表示還沒測,或只測了一部分,括號裡說明原因。
+> **目前進度(2026 年 10 月):已通過 20 項,共 31 項。** `[x]` 表示已實測通過,括號寫明是誰用什麼方式測的:「自動化實測」是用兩個瀏覽器分頁對真的 Supabase 跑腳本,「手機實測」是用手機實際操作。`[ ]` 表示還沒測,或只測了一部分,括號裡說明原因。
 
 **接線確認**
 
@@ -638,7 +638,7 @@ anonymous-chat/
 - [x] 專案資料夾與打包後的 `dist/` 中沒有出現管理金鑰與資料庫密碼(搜尋 `sb_secret_`、`service_role`:原始碼沒有;打包後的程式只有函式庫自己判斷金鑰類型的程式碼,不是金鑰)
 - [x] `.gitignore` 已包含機密檔案類型(`.env`、`.env.*`、`*.key`、`secrets*`)
 - [x] 本機 `npm run build` 成功,`npm test` 22 個測試通過;用 `npm run preview` 預覽 build 後的版本,兩個分頁的 15 項聊天測試通過(自動化實測)
-- [ ] GitHub Actions 的「Deploy to GitHub Pages」流程(build + deploy)執行成功,線上網站能正常聊天(push 之後才能確認)
+- [x] GitHub Actions 的「Deploy to GitHub Pages」流程(build + deploy)執行成功,線上網站能正常聊天(實測:commit `ab95e63` 的 build 與 deploy 兩個工作全部成功;線上網站兩個分頁的 15 項聊天測試通過)
 
 **真實跨裝置聊天**
 
