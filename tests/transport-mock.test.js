@@ -6,7 +6,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function record(t) {
   const log = [];
-  for (const name of ['onMessage', 'onJoin', 'onLeave', 'onRosterChange', 'onKicked', 'onDisconnect', 'onReconnect']) {
+  for (const name of ['onMessage', 'onTyping', 'onJoin', 'onLeave', 'onRosterChange', 'onKicked', 'onDisconnect', 'onReconnect']) {
     t.on(name, (...a) => log.push([name, ...a]));
   }
   return log;
@@ -166,4 +166,28 @@ test('真的斷線(完全沒回應)的人,還是會在逾時後被判定離開',
 test('還沒進入聊天室時 send() 回傳 false', () => {
   const t = createTransport();
   assert.equal(t.send('嗨'), false);
+});
+
+test('正在輸入:對方收到通知,自己不會收到;還沒進入時回傳 false', async () => {
+  const a = createTransport();
+  const b = createTransport();
+  try {
+    assert.equal(a.sendTyping(true), false);
+    await a.join('甲');
+    await b.join('乙');
+    const logA = record(a);
+    const logB = record(b);
+    assert.equal(a.sendTyping(true), true);
+    await sleep(80);
+    const got = logB.filter((e) => e[0] === 'onTyping');
+    assert.equal(got.length, 1);
+    assert.deepEqual(got[0][1], { nickname: '甲', typing: true });
+    assert.equal(logA.filter((e) => e[0] === 'onTyping').length, 0);
+    a.sendTyping(false);
+    await sleep(80);
+    assert.deepEqual(logB.filter((e) => e[0] === 'onTyping').at(-1)[1], { nickname: '甲', typing: false });
+  } finally {
+    a.leave();
+    b.leave();
+  }
 });

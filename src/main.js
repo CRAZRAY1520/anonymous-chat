@@ -6,8 +6,10 @@ import { createUI } from './ui.js';
 import {
   RECEIVE_INTERVAL_MS,
   SEND_INTERVAL_MS,
+  TYPING_EXPIRE_MS,
   createRateLimiter,
   isValidIncoming,
+  isValidTyping,
   nicknameKey,
   validateMessage,
   validateNickname,
@@ -63,6 +65,30 @@ function rememberSent(id) {
   if (sentIds.size > 100) sentIds.delete(sentIds.values().next().value);
 }
 
+// 正在輸入的人:代號比對值 → { name, timer }。收到「正在輸入」後 TYPING_EXPIRE_MS 沒更新就自動消失
+const typingUsers = new Map();
+const typingLimiter = createRateLimiter({ max: 3, windowMs: 1000 });
+function renderTyping() {
+  ui.setTyping([...typingUsers.values()].map((u) => u.name));
+}
+function setTypingUser(key, name) {
+  clearTimeout(typingUsers.get(key)?.timer);
+  typingUsers.set(key, { name, timer: setTimeout(() => clearTypingUser(key), TYPING_EXPIRE_MS) });
+  renderTyping();
+}
+function clearTypingUser(key) {
+  const u = typingUsers.get(key);
+  if (!u) return;
+  clearTimeout(u.timer);
+  typingUsers.delete(key);
+  renderTyping();
+}
+function clearAllTyping() {
+  for (const u of typingUsers.values()) clearTimeout(u.timer);
+  typingUsers.clear();
+  renderTyping();
+}
+
 let me = null; // { nickname, key }
 let inChat = false;
 let online = true;
@@ -108,6 +134,9 @@ const ui = createUI({
     rememberSent(sentId);
     return 'ok';
   },
+  onTyping(isTyping) {
+    if (online) transport.sendTyping(isTyping);
+  },
 });
 
 function resetSession() {
@@ -116,6 +145,7 @@ function resetSession() {
   online = true;
   roster = [];
   sentIds.clear();
+  clearAllTyping();
   unread = 0;
   updateTitle();
 }
@@ -190,6 +220,7 @@ transport.on('onMessage', (msg) => {
     if (!roster.some((p) => nicknameKey(p.nickname) === key)) return;
     if (!receiveLimiter.tryPass(key)) return;
   }
+  if (!mine) clearTypingUser(key); // 他的訊息送出了,就不再顯示他正在輸入
   ui.addMessage({ nickname: msg.nickname, text: msg.text, sentAt: msg.sentAt, mine });
   if (!mine && document.hidden) {
     unread += 1;
@@ -197,11 +228,22 @@ transport.on('onMessage', (msg) => {
   }
 });
 
+transport.on('onTyping', (p) => {
+  if (!inChat || !isValidTyping(p)) return;
+  const key = nicknameKey(p.nickname);
+  if (key === me.key) return; // 自己的不用顯示
+  if (!roster.some((r) => nicknameKey(r.nickname) === key)) return; // 不在線上名單的人,丟掉
+  if (!typingLimiter.tryPass(key)) return;
+  if (p.typing) setTypingUser(key, p.nickname);
+  else clearTypingUser(key);
+});
+
 transport.on('onJoin', (nickname) => {
   if (inChat && nicknameKey(nickname) !== me.key) ui.addSystem(`${nickname} 進來了`);
 });
 
 transport.on('onLeave', (nickname) => {
+  clearTypingUser(nicknameKey(nickname));
   if (inChat && nicknameKey(nickname) !== me.key) ui.addSystem(`${nickname} 離開了`);
 });
 

@@ -3,7 +3,7 @@
 // 所有來自別人的文字一律用 textContent 放進畫面,不會被當成 HTML 執行。
 
 import { colorFor } from './color.js';
-import { NICK_MAX, TEXT_MAX, countChars, validateNickname, validateMessage } from './validate.js';
+import { NICK_MAX, TEXT_MAX, TYPING_SEND_INTERVAL_MS, countChars, validateNickname, validateMessage } from './validate.js';
 
 const MAX_ITEMS = 200; // 畫面上最多保留幾則(含系統提示),更舊的移除
 const NEAR_BOTTOM_PX = 48;
@@ -11,7 +11,7 @@ const HINT_MS = 1500;
 
 const $ = (id) => document.getElementById(id);
 
-export function createUI({ onNickname, onRetry, onLeave, onSend }) {
+export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping }) {
   const el = {
     login: $('screen-login'),
     full: $('screen-full'),
@@ -43,6 +43,7 @@ export function createUI({ onNickname, onRetry, onLeave, onSend }) {
     send: $('send-btn'),
     hint: $('hint'),
     remain: $('remain'),
+    typing: $('typing'),
   };
 
   // 觸控裝置(手機、平板)的 Enter 是換行,用按鈕送出
@@ -52,6 +53,8 @@ export function createUI({ onNickname, onRetry, onLeave, onSend }) {
   let busy = false; // 正在連線,鎖住輸入
   let pending = 0; // 往上看舊訊息時累積的新訊息數
   let hintTimer = null;
+  let typingActive = false; // 我正在輸入(已通知過大家)
+  let lastTypingSent = 0;
 
   // ---------- 畫面切換 ----------
 
@@ -331,6 +334,7 @@ export function createUI({ onNickname, onRetry, onLeave, onSend }) {
     const result = onSend(el.text.value);
     if (result === 'ok') {
       el.text.value = '';
+      typingActive = false; // 訊息送出後,別人收到訊息就知道我不在輸入了
       refreshComposer();
     } else if (result === 'tooFast') {
       flashHint('送太快了,等一秒再送');
@@ -341,11 +345,40 @@ export function createUI({ onNickname, onRetry, onLeave, onSend }) {
 
   function resetComposer() {
     el.text.value = '';
+    typingActive = false;
     setHint(defaultHint);
     refreshComposer();
   }
 
-  el.text.addEventListener('input', refreshComposer);
+  // 輸入中:有內容時最多每 TYPING_SEND_INTERVAL_MS 通知一次;清空後通知一次「停了」
+  function notifyTyping() {
+    const has = el.text.value.trim() !== '';
+    const now = Date.now();
+    if (has) {
+      if (!typingActive || now - lastTypingSent >= TYPING_SEND_INTERVAL_MS) {
+        typingActive = true;
+        lastTypingSent = now;
+        onTyping?.(true);
+      }
+    } else if (typingActive) {
+      typingActive = false;
+      onTyping?.(false);
+    }
+  }
+
+  // 顯示「某某 正在輸入…」。names 是目前正在輸入的人的代號
+  function setTyping(names) {
+    let text = '';
+    if (names.length === 1) text = `${names[0]} 正在輸入…`;
+    else if (names.length === 2) text = `${names[0]}、${names[1]} 正在輸入…`;
+    else if (names.length > 2) text = `${names[0]}、${names[1]} 和其他 ${names.length - 2} 人正在輸入…`;
+    el.typing.textContent = text;
+  }
+
+  el.text.addEventListener('input', () => {
+    refreshComposer();
+    notifyTyping();
+  });
   el.text.addEventListener('keydown', (e) => {
     // 注音、倉頡等輸入法選字時按的 Enter 不能當成送出
     if (e.isComposing || e.keyCode === 229) return;
@@ -386,6 +419,7 @@ export function createUI({ onNickname, onRetry, onLeave, onSend }) {
     clearLog,
     renderRoster,
     setBanner,
+    setTyping,
     resetComposer,
     getNicknameInput: () => el.nick.value,
   };

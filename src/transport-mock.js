@@ -7,7 +7,8 @@
 //   send(text)     → 送出的訊息編號(id);沒送出(還沒進入、連線中斷)就回傳 false
 //   on(eventName, handler) → 取消訂閱用的函式
 //
-//   事件:onMessage、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
+//   sendTyping(isTyping) → 通知大家「我正在輸入 / 停了」(不保存、不回傳給自己)
+//   事件:onMessage、onTyping、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
 
 import { nicknameKey, ROOM_LIMIT } from './validate.js';
 
@@ -23,7 +24,7 @@ const DEFAULT_TIMING = {
 const GATHER_MS = 400; // 進入前等多久,收集目前的線上名單(模擬等 Presence 同步)
 const RACE_MS = 300; // 登記後再檢查一次有沒有人同時搶同一個代號
 
-const EVENTS = ['onMessage', 'onJoin', 'onLeave', 'onRosterChange', 'onReconnect', 'onDisconnect', 'onKicked'];
+const EVENTS = ['onMessage', 'onTyping', 'onJoin', 'onLeave', 'onRosterChange', 'onReconnect', 'onDisconnect', 'onKicked'];
 
 const BOT_NAMES = ['夜貓', '小華', '阿凱'];
 const BOT_LINES = [
@@ -137,6 +138,9 @@ export function createTransport({ bots = false, crowd = 0, timing = {} } = {}) {
         }
         break;
       }
+      case 'typing':
+        if (joined) emit('onTyping', data.payload);
+        break;
       case 'chat': {
         const msg = data.message;
         if (!msg || typeof msg.nickname !== 'string') return;
@@ -318,6 +322,12 @@ export function createTransport({ bots = false, crowd = 0, timing = {} } = {}) {
     return message.id;
   }
 
+  function sendTyping(isTyping) {
+    if (!joined || !online) return false;
+    post({ type: 'typing', payload: { nickname: me.nickname, typing: !!isTyping } });
+    return true;
+  }
+
   // 關掉分頁時趕快說再見,別人就不用等逾時
   if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', () => {
@@ -367,5 +377,5 @@ export function createTransport({ bots = false, crowd = 0, timing = {} } = {}) {
     setCrowd,
   };
 
-  return { join, leave, send, on, dev };
+  return { join, leave, send, sendTyping, on, dev };
 }

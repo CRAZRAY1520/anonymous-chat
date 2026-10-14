@@ -7,6 +7,8 @@ export const SEND_INTERVAL_MS = 1000;
 // 兩則本來隔 1 秒送出的訊息,有時會在不到 1 秒內先後到達。
 export const RECEIVE_INTERVAL_MS = 700;
 export const ROOM_LIMIT = 50;
+export const TYPING_SEND_INTERVAL_MS = 2000; // 輸入中時,最多每隔這麼久通知一次大家
+export const TYPING_EXPIRE_MS = 4000; // 收到「正在輸入」後,這麼久沒再收到更新就當作停了
 
 // 控制字元與看不見的方向/零寬字元不能出現在代號或訊息裡。
 // 零寬連字(U+200D)是組合 emoji 需要的,所以不擋。
@@ -73,6 +75,14 @@ export function isValidIncoming(msg) {
   const text = validateMessage(msg.text);
   if (!text.ok || text.value !== msg.text) return false;
   return true;
+}
+
+// 收到別人的「正在輸入」通知時先檢查格式。
+export function isValidTyping(p) {
+  if (!p || typeof p !== 'object' || typeof p.typing !== 'boolean') return false;
+  if (typeof p.nickname !== 'string') return false;
+  const nick = validateNickname(p.nickname);
+  return nick.ok && nick.value === p.nickname;
 }
 
 // 滑動時間窗的頻率限制:windowMs 內最多通過 max 次。

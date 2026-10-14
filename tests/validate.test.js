@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createRateLimiter,
   isValidIncoming,
+  isValidTyping,
   nicknameKey,
   validateMessage,
   validateNickname,
@@ -95,4 +96,16 @@ test('收訊息的最短間隔比送出端短,才容得下網路延遲', async (
   const { RECEIVE_INTERVAL_MS, SEND_INTERVAL_MS } = await import('../src/validate.js');
   assert.ok(RECEIVE_INTERVAL_MS < SEND_INTERVAL_MS);
   assert.ok(RECEIVE_INTERVAL_MS >= 500); // 也不能短到失去擋洗版的作用
+});
+
+test('正在輸入通知:格式正確才接受', () => {
+  assert.equal(isValidTyping({ nickname: '小華', typing: true }), true);
+  assert.equal(isValidTyping({ nickname: '小華', typing: false }), true);
+  assert.equal(isValidTyping(null), false);
+  assert.equal(isValidTyping('typing'), false);
+  assert.equal(isValidTyping({ nickname: '小華' }), false); // 缺 typing
+  assert.equal(isValidTyping({ nickname: '小華', typing: 'yes' }), false); // typing 不是布林
+  assert.equal(isValidTyping({ nickname: 123, typing: true }), false);
+  assert.equal(isValidTyping({ nickname: ' 小華', typing: true }), false); // 代號沒有去空格
+  assert.equal(isValidTyping({ nickname: '一二三四五六七八九十甲乙丙', typing: true }), false); // 超過 12 字
 });

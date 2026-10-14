@@ -324,6 +324,17 @@ button:disabled { cursor: not-allowed; }
   padding-bottom: env(safe-area-inset-bottom);
 }
 .composer-inner { width: 100%; max-width: 760px; margin: 0 auto; padding: 10px 12px 14px; }
+/* 「某某 正在輸入…」:固定保留一行高度,有沒有人在輸入,版面都不會跳動 */
+.typing {
+  min-height: 18px;
+  padding: 0 8px 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--lamp);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .composer-row { display: flex; gap: 8px; align-items: flex-end; }
 .composer textarea {
   flex: 1;
