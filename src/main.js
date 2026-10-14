@@ -15,6 +15,8 @@ import {
 
 const TITLE = '匿名聊天室';
 const STORE_KEY = 'anon-chat:nickname';
+const AUTO_RETRIES = 6; // 重新整理後自動進入遇到「代號重複」時,最多再試幾次
+const AUTO_RETRY_MS = 1500; // 每次重試前等多久
 const RECONNECT_NOTE = '已重新連線,中斷期間的訊息看不到';
 const TAKEN_AFTER_LOST = '你的代號已被使用,請重新取一個。';
 
@@ -137,12 +139,21 @@ async function tryJoin(nickname, from) {
   if (from === 'login') ui.setLoginBusy(true);
   if (from === 'auto') ui.showLogin({ nickname, busy: true });
 
-  let result;
-  try {
-    result = await transport.join(nickname);
-  } catch (err) {
-    console.error(err);
-    result = { ok: false, reason: 'failed' };
+  const attempt = async () => {
+    try {
+      return await transport.join(nickname);
+    } catch (err) {
+      console.error(err);
+      return { ok: false, reason: 'failed' };
+    }
+  };
+
+  let result = await attempt();
+  // 重新整理後自動進入時,伺服器可能還沒清掉「這個分頁上一個連線」留下的登記,
+  // 會誤以為代號被別人占走。所以先等一下再試幾次,仍然重複才當作真的被占走。
+  for (let i = 0; from === 'auto' && i < AUTO_RETRIES && !result.ok && result.reason === 'taken'; i++) {
+    await new Promise((r) => setTimeout(r, AUTO_RETRY_MS));
+    result = await attempt();
   }
 
   if (result.ok) {
