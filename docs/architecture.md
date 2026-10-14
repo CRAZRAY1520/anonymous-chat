@@ -520,7 +520,7 @@ anonymous-chat/
 
 1. 取出 repo 的檔案。
 2. 設定 GitHub Pages。
-3. 把整個 repo 的檔案**原樣**打包上傳,不加工、不建置。以點開頭的隱藏檔(例如 `.gitignore`)不會上傳;`.github` 資料夾也不會。
+3. 把整個 repo 的檔案**原樣**打包上傳,不加工、不建置。`.git` 與 `.github` 資料夾不會上傳(實測 `.github/workflows/deploy.yml` 在網站上是 404);但 `.gitignore`、`.nojekyll` 這類以點開頭的檔案會一起上傳,網站上讀得到(實測回應 200),它們不含機密,沒有影響。
 4. 發佈到 GitHub Pages。
 
 流程只拿到最小的權限:讀取 repo 檔案、發佈 Pages,以及向 GitHub 證明這次部署確實來自這個 repo。**不需要設定任何 Secrets**:Supabase 的專案網址與公開金鑰在 `js/config.js`,隨檔案一起部署(見第 8 節)。
