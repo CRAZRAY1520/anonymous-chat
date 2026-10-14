@@ -42,7 +42,7 @@
 先用白話說明三個角色:
 
 - **瀏覽器**:使用者自己的 Chrome、Safari 之類的軟體。聊天室的畫面和操作都在這裡運作。
-- **GitHub Pages**:GitHub 提供的免費網頁空間,只負責把網頁檔案交給瀏覽器,不處理聊天。
+- **GitHub Pages**:GitHub 提供的免費網頁空間,只負責把網頁檔案交給瀏覽器,不處理聊天。網站由 GitHub Actions 部署(見第 12 節)。
 - **Supabase**:一個提供後端服務的網站(後端就是「在別人電腦上幫你處理資料的那一端」)。這個專案只用它的即時通訊功能,負責把一個人的訊息立刻轉給所有人。
 
 ```mermaid
@@ -475,6 +475,9 @@ Supabase 的連線同樣靠定時的心跳(定時告訴伺服器「我還連著�
 anonymous-chat/
 ├── index.html             網頁的入口,使用者打開網址看到的就是它
 ├── .gitignore             告訴 git 哪些檔案不要上傳(見第 8.5 節)
+├── .github/
+│   └── workflows/
+│       └── deploy.yml     GitHub Actions 部署流程:push 到 main 就把網站發佈到 GitHub Pages(見第 12 節)
 ├── css/
 │   └── style.css          外觀樣式(由 /design 與 /frontend-design 決定內容)
 ├── js/
@@ -486,7 +489,7 @@ anonymous-chat/
 │   ├── ui.js              更新畫面:訊息列表、線上名單、捲動、未讀數
 │   └── color.js           決定每個代號顯示什麼顏色
 ├── package.json           只用來執行測試(npm test),沒有任何要安裝的套件
-├── .nojekyll              告訴 GitHub Pages 不要做額外處理,原樣提供檔案
+├── .nojekyll              早期用「從分支部署」時用來關掉 Jekyll;改用 GitHub Actions 後不再必要,留著無害
 ├── CLAUDE.md              給 Claude Code 的專案說明(開工前先讀這份文件)
 ├── tests/                 驗證檢查規則與假零件是否正確的測試
 └── docs/
@@ -509,18 +512,34 @@ anonymous-chat/
 
 **為什麼不需要任何建置流程:** 第 3.1 節選了純 HTML/CSS/JS,檔案本身就是最終成品,不需要加工。
 
-**步驟:**
+**怎麼部署:用 GitHub Actions。**
 
-1. 把所有檔案提交到 GitHub 的 `main` 分支。
-2. 到 GitHub 的 repo 頁面,進入 Settings(設定)裡的 Pages 設定。
-3. 來源選擇 `main` 分支的根目錄。
-4. 等幾分鐘,GitHub 會顯示網址,格式是 `https://<你的帳號>.github.io/<repo 名稱>/`。
-5. 之後每次更新並提交到 `main`,網站會自動更新(可能要等一兩分鐘)。
+> **GitHub Actions**:GitHub 內建的自動化服務。你 push 之後,它會自動執行 repo 裡寫好的一份「流程檔」,這裡用它來把網站發佈出去。
 
-**要注意的兩件事:**
+流程檔是 `.github/workflows/deploy.yml`。每次 push 到 `main` 分支(也可以到 repo 的 Actions 頁籤手動按「Run workflow」),它會依序做四件事:
+
+1. 取出 repo 的檔案。
+2. 設定 GitHub Pages。
+3. 把整個 repo 的檔案**原樣**打包上傳,不加工、不建置。以點開頭的隱藏檔(例如 `.gitignore`)不會上傳;`.github` 資料夾也不會。
+4. 發佈到 GitHub Pages。
+
+流程只拿到最小的權限:讀取 repo 檔案、發佈 Pages,以及向 GitHub 證明這次部署確實來自這個 repo。**不需要設定任何 Secrets**:Supabase 的專案網址與公開金鑰在 `js/config.js`,隨檔案一起部署(見第 8 節)。
+
+**只需要在 GitHub 網頁上設定一次:**
+
+1. 打開 repo 頁面,點上方的 **Settings**。
+2. 左側選單點 **Pages**。
+3. 在 **Build and deployment** 的 **Source**,把「Deploy from a branch」改成 **GitHub Actions**。(選好後設定通常會直接生效,沒有 Save 按鈕。)
+4. 之後每次 push 到 `main`,網站會自動更新,通常一到兩分鐘。可以到 repo 的 **Actions** 頁籤看每次部署的結果,綠色勾勾表示成功。
+
+網址仍是 `https://<你的帳號>.github.io/<repo 名稱>/`。
+
+**要注意的事:**
 
 - **網址是帶有 repo 名稱的子路徑**,所以網頁裡引用檔案時要用相對路徑(例如 `js/main.js`,不要寫成 `/js/main.js`),否則網頁會找不到檔案。
-- GitHub Pages 的內容是**公開**的,任何知道網址的人都能看到所有檔案。這也是為什麼機密金鑰絕對不能放進專案。
+- GitHub Pages 的內容是**公開**的,任何知道網址的人都能看到所有被上傳的檔案(包含 `docs/`、`tests/`、`README.md` 等)。這也是為什麼機密金鑰絕對不能放進專案。
+- 用 GitHub Actions 部署時 GitHub 不會再執行 Jekyll,所以 `.nojekyll` 這個檔案已經不是必要的,留著也無害。
+- 流程檔用的是 GitHub 官方 action(`actions/checkout`、`actions/configure-pages`、`actions/upload-pages-artifact`、`actions/deploy-pages`),版本照 GitHub 官方範本。GitHub 日後淘汰舊版時,Actions 頁面會出現警告,屆時再升級版本即可。
 
 階段一和階段二都用同樣的方式部署,階段二只是更新了其中幾個檔案。
 
@@ -579,13 +598,14 @@ anonymous-chat/
 
 ### 階段二:接上 Supabase(真零件)
 
-> **目前進度(2026 年 10 月):已通過 18 項,共 29 項。** `[x]` 表示已實測通過,括號寫明是誰用什麼方式測的:「自動化實測」是用兩個瀏覽器分頁對真的 Supabase 跑腳本,「手機實測」是用手機實際操作。`[ ]` 表示還沒測,或只測了一部分,括號裡說明原因。
+> **目前進度(2026 年 10 月):已通過 18 項,共 30 項。** `[x]` 表示已實測通過,括號寫明是誰用什麼方式測的:「自動化實測」是用兩個瀏覽器分頁對真的 Supabase 跑腳本,「手機實測」是用手機實際操作。`[ ]` 表示還沒測,或只測了一部分,括號裡說明原因。
 
 **接線確認**
 
 - [x] 專案網址與公開金鑰已填入 `config.js`(自動化實測:能連上 Supabase 並收發)
 - [x] 專案資料夾中沒有出現管理金鑰與資料庫密碼(commit 前搜尋 `sb_secret_`、`service_role` 與 JWT 格式,只命中文件裡的說明文字)
 - [x] `.gitignore` 已包含機密檔案類型(`.env`、`.env.*`、`*.key`、`secrets*`)
+- [ ] GitHub Actions 的「Deploy to GitHub Pages」流程執行成功,網站內容有更新(尚未實測,要先在 Settings → Pages 把 Source 改成 GitHub Actions,再 push 一次)
 
 **真實跨裝置聊天**
 

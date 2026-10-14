@@ -1,0 +1,51 @@
+# 用 GitHub Actions 把這個 repo 部署到 GitHub Pages。
+#
+# 這個專案不需要建置(build):網站就是 repo 裡的 HTML、CSS、JavaScript 檔案本身,
+# 所以這個流程只做三件事:取出 repo 的檔案 → 原樣打包上傳 → 發佈到 GitHub Pages。
+# 流程改寫自 GitHub 官方範本「Deploy static content to Pages」。
+#
+# 使用前提:repo 的 Settings → Pages → Build and deployment → Source 要選「GitHub Actions」。
+# 金鑰不在這裡:Supabase 的專案網址與公開金鑰在 js/config.js,隨檔案一起部署,
+# 不需要設定任何 Secrets。見 docs/architecture.md 第 8 節與第 12 節。
+
+name: Deploy to GitHub Pages
+
+on:
+  # push 到 main 分支就自動部署
+  push:
+    branches: [main]
+  # 也可以到 Actions 頁籤手動按「Run workflow」重新部署
+  workflow_dispatch:
+
+# 只給這個流程部署 Pages 需要的最小權限
+permissions:
+  contents: read # 讀取 repo 檔案
+  pages: write # 發佈到 GitHub Pages
+  id-token: write # 向 GitHub 證明這次部署確實來自這個 repo
+
+# 同一時間只跑一個部署;新的 push 排隊等前一個做完,不中途取消
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 取出 repo 的檔案
+        uses: actions/checkout@v4
+
+      - name: 設定 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上傳整個 repo 當作網站內容(不需要 build)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: 發佈到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

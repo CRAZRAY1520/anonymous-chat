@@ -9,7 +9,7 @@
 網站沒有建置步驟,**網站上的檔案就是這個 repo `main` 分支的檔案,原樣提供**。可以這樣確認:
 
 1. 打開網站,輸入代號畫面的最下方有「原始碼」連結,指向 https://github.com/CRAZRAY1520/anonymous-chat 。這個連結寫在網頁的 HTML 裡。
-2. 本 repo 的 About 欄位填的網站網址就是 https://crazray1520.github.io/anonymous-chat/ ,repo 首頁右側的 **Deployments → github-pages** 每次 push 都有一筆部署紀錄,對應到相同的 commit。
+2. 本 repo 的 About 欄位填的網站網址就是 https://crazray1520.github.io/anonymous-chat/ ,網站由 **GitHub Actions** 部署:repo 的 **Actions** 頁籤,每次 push 都有一筆「Deploy to GitHub Pages」流程(定義在 `.github/workflows/deploy.yml`);repo 首頁右側的 **Deployments → github-pages** 也有對應的部署紀錄與 commit。
 3. 開啟 https://crazray1520.github.io/anonymous-chat/js/transport-supabase.js ,內容和 https://github.com/CRAZRAY1520/anonymous-chat/blob/main/js/transport-supabase.js 完全相同。
 4. 網站載入 `js/main.js`,它最上面的 `import { createTransport }` 載入 `js/transport-supabase.js`,裡面用 `createClient(...)` 連 Supabase,設定在 `js/config.js`(專案網址 `ldfxdapblpwkhvcblfkf.supabase.co`)。在瀏覽器開發人員工具的 Network 分頁,可以看到網站對這個網址建立 WebSocket 連線。
 
@@ -32,6 +32,7 @@
 | `js/transport-mock.js` | 階段一用的假收發零件(只在同一個瀏覽器的分頁之間互傳),留作測試用 |
 | `js/ui.js`、`js/validate.js`、`js/color.js` | 畫面更新、代號與訊息的檢查規則、代號顏色 |
 | `tests/` | 單元測試 |
+| `.github/workflows/deploy.yml` | **部署流程**:用 GitHub Actions 把 repo 的檔案原樣發佈到 GitHub Pages,沒有建置步驟 |
 
 ## 設定與金鑰
 
@@ -65,4 +66,6 @@ npm test
 
 ## 部署
 
-推送到 `main` 分支後,GitHub Pages 會自動更新網站(通常一到兩分鐘),不需要任何額外設定。
+用 GitHub Actions 部署,流程在 `.github/workflows/deploy.yml`。推送到 `main` 分支後會自動執行(通常一到兩分鐘),也可以到 repo 的 **Actions** 頁籤手動執行。流程不需要任何 Secrets,也沒有建置步驟:它把 repo 的檔案原樣上傳並發佈。
+
+第一次使用要在 GitHub 網頁上設定一次:repo 的 **Settings → Pages → Build and deployment → Source**,選 **GitHub Actions**。
