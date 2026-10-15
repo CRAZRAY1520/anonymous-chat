@@ -56,18 +56,6 @@
 - **對應檔案**:`src/main.js`(`updateTitle`、`visibilitychange`)
 - **怎麼操作才看得到**:AIgraderA、AIgraderB 各自進入聊天室。AIgraderB 把聊天室分頁切到背景(切到別的分頁或視窗)。AIgraderA 送出一則訊息。看 AIgraderB 的分頁標題,會變成「(1) 匿名聊天室」;切回聊天室分頁後標題恢復。
 
-### 收訊端過濾冒用與洗版
-
-- **說明**:收到別人的訊息時先檢查。格式不對、超過 200 字、不在線上名單的人、冒用「你自己的代號」送來的,以及同一個代號兩則訊息間隔不到 0.7 秒的後到者,都直接丟掉。
-- **對應檔案**:`src/main.js`(`onMessage`)、`src/validate.js`(`isValidIncoming`、`createRateLimiter`、`RECEIVE_INTERVAL_MS`)、`tests/validate.test.js`
-- **怎麼操作才看得到**:這個過濾擋的是「不正常的資料」,一般聊天看不到效果。要驗證它,執行 `npm test`,`tests/validate.test.js` 有對應的測試。聊天室裡能看到的相關現象是:AIgraderA 一秒內連按兩次送出,會看到「送太快了,等一秒再送」,但那是**送出端**的限制,不是收訊端。
-
-### 50 人上限與「已滿」重試畫面
-
-- **說明**:同一個聊天室同時最多 50 人。第 51 位看到「聊天室已滿」和「重試」按鈕,有人離開後按「重試」就能進入。
-- **對應檔案**:`src/validate.js`(`ROOM_LIMIT`)、`src/transport-supabase.js`、`src/transport-mock.js`、`src/ui.js`(`showFull`)、`index.html`(`screen-full`)
-- **怎麼操作才看得到**:正式網站很難湊到 50 人,評分時看不到。在自己的電腦上看:把 `src/main.js` 最上面的 `import` 暫時換成 `./transport-mock.js`,執行 `npm run dev`,打開 `http://localhost:5173/?crowd=50` 輸入代號,就會看到「已滿」畫面;在瀏覽器主控台執行 `__mock.setCrowd(0)` 再按「重試」就能進入。
-
 ### 正在輸入中提示
 
 - **說明**:有人在訊息輸入框打字時,同一個聊天室的其他人會看到「某某 正在輸入…」。多人同時輸入會合併顯示,停止打字約 4 秒、清空輸入框或送出訊息後消失。這類提示不保存。
@@ -91,3 +79,19 @@
 - **說明**:可以選聊天室(大廳、閒聊、深夜)。每個聊天室的線上名單、訊息、正在輸入、表情回應、人數上限(50 人)都各自獨立,別的聊天室的人看不到你說的話。同一個代號可以同時出現在不同聊天室,但同一個聊天室裡不能重複。原本的「所有人在同一個聊天室」就是預設的「大廳」。訊息仍然不保存。
 - **對應檔案**:`src/validate.js`(`ROOMS`、`isValidRoom`、`roomChannelName`)、`src/main.js`(`onSwitchRoom`、`tryJoin` 的聊天室參數、`store` 記住聊天室)、`src/ui.js`(聊天室選單)、`index.html`(`#room`、`#room-switch`)、`src/transport-supabase.js` 與 `src/transport-mock.js`(`join(代號, 聊天室)`,每個聊天室一個頻道)
 - **怎麼操作才看得到**:AIgraderA、AIgraderB、AIgraderC 三個瀏覽器打開網站。在輸入代號畫面,AIgraderA 與 AIgraderB 保持預設的「大廳」,AIgraderC 在「聊天室」下拉選單選「閒聊」,三人各自輸入自己的代號進入。AIgraderA 說一句話,AIgraderB 看得到,AIgraderC 看不到;AIgraderC 說話則反過來。三個人的線上名單也各自獨立(大廳 2 人、閒聊 1 人)。AIgraderB 用聊天室頂部的下拉選單換到「閒聊」,畫面清空、名單變成閒聊的(AIgraderB、AIgraderC),AIgraderC 看到「AIgraderB 進來了」,AIgraderA 看到「AIgraderB 離開了」。網址加上 `?room=night` 可以預先選好「深夜」。
+
+## 安全與限制
+
+以下兩項是安全與使用限制,不是聊天功能,所以不放在「新增功能」。
+
+### 收訊端過濾冒用與洗版
+
+- **說明**:收到別人的訊息時先檢查。格式不對、超過 200 字、不在線上名單的人、冒用「你自己的代號」送來的,以及同一個代號兩則訊息間隔不到 0.7 秒的後到者,都直接丟掉。
+- **對應檔案**:`src/main.js`(`onMessage`)、`src/validate.js`(`isValidIncoming`、`createRateLimiter`、`RECEIVE_INTERVAL_MS`)、`tests/validate.test.js`
+- **怎麼操作才看得到**:這個過濾擋的是「不正常的資料」,一般聊天看不到效果。要驗證它,執行 `npm test`,`tests/validate.test.js` 有對應的測試。聊天室裡能看到的相關現象是:AIgraderA 一秒內連按兩次送出,會看到「送太快了,等一秒再送」,但那是**送出端**的限制,不是收訊端。
+
+### 50 人上限與「已滿」重試畫面
+
+- **說明**:同一個聊天室同時最多 50 人。第 51 位看到「聊天室已滿」和「重試」按鈕,有人離開後按「重試」就能進入。
+- **對應檔案**:`src/validate.js`(`ROOM_LIMIT`)、`src/transport-supabase.js`、`src/transport-mock.js`、`src/ui.js`(`showFull`)、`index.html`(`screen-full`)
+- **怎麼操作才看得到**:正式網站很難湊到 50 人,評分時看不到。在自己的電腦上看:把 `src/main.js` 最上面的 `import` 暫時換成 `./transport-mock.js`,執行 `npm run dev`,打開 `http://localhost:5173/?crowd=50` 輸入代號,就會看到「已滿」畫面;在瀏覽器主控台執行 `__mock.setCrowd(0)` 再按「重試」就能進入。
