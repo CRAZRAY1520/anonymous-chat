@@ -147,6 +147,44 @@ test('收回訊息:格式正確才接受', () => {
   assert.equal(isValidRecall({ msgId: 'm1', nickname: 5 }), false);
 });
 
+test('三種通知:邊界與奇怪的輸入', () => {
+  const nick12 = '一二三四五六七八九十甲乙';
+  const typing = (nickname) => isValidTyping({ nickname, typing: true });
+  const reaction = (extra) => isValidReaction({ msgId: 'm1', emoji: REACTIONS[0], nickname: '小華', on: true, ...extra });
+  const recall = (extra) => isValidRecall({ msgId: 'm1', nickname: '小華', ...extra });
+
+  // 代號剛好 12 字可以;含控制字元、零寬字元、空字串不行
+  assert.equal(typing(nick12), true);
+  assert.equal(reaction({ nickname: nick12 }), true);
+  assert.equal(recall({ nickname: nick12 }), true);
+  for (const bad of ['小\u0000華', '小​華', '小‮華', '']) {
+    assert.equal(typing(bad), false);
+    assert.equal(reaction({ nickname: bad }), false);
+    assert.equal(recall({ nickname: bad }), false);
+  }
+
+  // msgId 剛好 64 字可以
+  assert.equal(reaction({ msgId: 'x'.repeat(64) }), true);
+  assert.equal(recall({ msgId: 'x'.repeat(64) }), true);
+
+  // 陣列、數字、布林、undefined 不是物件
+  for (const bad of [[], 0, 1, true, undefined]) {
+    assert.equal(isValidTyping(bad), false);
+    assert.equal(isValidReaction(bad), false);
+    assert.equal(isValidRecall(bad), false);
+  }
+
+  // 空物件(缺所有欄位)不行;多出來的欄位不影響結果
+  assert.equal(isValidTyping({}), false);
+  assert.equal(isValidReaction({}), false);
+  assert.equal(isValidRecall({}), false);
+  assert.equal(isValidRecall({ msgId: 'm1', nickname: '小華', extra: '<script>' }), true);
+
+  // typing / on 只認真正的布林值,0 和 1 不行
+  assert.equal(isValidTyping({ nickname: '小華', typing: 0 }), false);
+  assert.equal(reaction({ on: 1 }), false);
+});
+
 test('聊天室:清單、預設、名稱與頻道名稱', () => {
   assert.deepEqual(ROOMS.map((r) => r.id), ['lobby', 'chat', 'night']);
   assert.equal(DEFAULT_ROOM, 'lobby');
