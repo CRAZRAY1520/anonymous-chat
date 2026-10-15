@@ -1,0 +1,11 @@
+# Supabase CLI 設定。只放部署需要的部分(本機模擬環境用不到,所以沒有列出)。
+# 見 docs/architecture.md 第 9 節與第 12 節。
+project_id = "anonymous-chat"
+
+# 發送訊息的 Edge Function。
+# verify_jwt = false:瀏覽器用的 Publishable key 不是 JWT,函式閘門驗不過。
+# 這是公開入口,所有保護(格式、字詞、頻率)都寫在函式裡,不靠閘門。
+[functions.send]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/send/index.ts"
