@@ -19,13 +19,13 @@
 ## 怎麼運作
 
 - 網頁(純 HTML、CSS、JavaScript,沒有框架,用 Vite 打包)放在 GitHub Pages。
-- 即時傳訊用 [Supabase Realtime](https://supabase.com/docs/guides/realtime):訊息用 Broadcast 傳送,線上名單與進出提示用 Presence。沒有資料庫,也沒有自己的伺服器。
+- 即時傳訊用 [Supabase Realtime](https://supabase.com/docs/guides/realtime):訊息用 Broadcast 傳送,線上名單與進出提示用 Presence。頻道是**私有**的,瀏覽器只能收;所有發送都要經過 Supabase 的 **Edge Function**(`supabase/functions/send/`),由它在伺服器端檢查格式、字詞、頻率後才轉發。沒有自己架設的伺服器,訊息不保存(資料庫裡只有一張記錄「送了幾次」的頻率計數表)。
 
 詳細的設計、資料流與限制見 [`docs/architecture.md`](docs/architecture.md),畫面細節見 [`docs/design.md`](docs/design.md),需求見 [`docs/requirements.md`](docs/requirements.md)。
 
 ## 新增功能
 
-以下是原始需求之外新增的 6 項功能,每項列出:一句說明、對應檔案、以及怎麼操作才看得到效果。操作說明以三個瀏覽器(AIgraderA、AIgraderB、AIgraderC,代號就用這三個名字)進入聊天室為例。完整的需求寫在 [`docs/requirements.md`](docs/requirements.md),設計與測試結果見 [`docs/architecture.md`](docs/architecture.md)。
+以下是原始需求之外新增的 7 項功能(其中「伺服器端強制的限制」是 **C 級**功能,其餘為一般新增功能),每項列出:一句說明、對應檔案、以及怎麼操作才看得到效果。操作說明以三個瀏覽器(AIgraderA、AIgraderB、AIgraderC,代號就用這三個名字)進入聊天室為例。完整的需求寫在 [`docs/requirements.md`](docs/requirements.md),設計與測試結果見 [`docs/architecture.md`](docs/architecture.md)。
 
 ### 輸入框即時字數
 
@@ -63,9 +63,19 @@
 - **對應檔案**:`src/validate.js`(`ROOMS`、`isValidRoom`、`roomChannelName`)、`src/main.js`(`onSwitchRoom`、`tryJoin` 的聊天室參數、`store` 記住聊天室)、`src/ui.js`(聊天室選單)、`index.html`(`#room`、`#room-switch`)、`src/transport-supabase.js` 與 `src/transport-mock.js`(`join(代號, 聊天室)`,每個聊天室一個頻道)
 - **怎麼操作才看得到**:AIgraderA、AIgraderB、AIgraderC 三個瀏覽器打開網站。在輸入代號畫面,AIgraderA 與 AIgraderB 保持預設的「大廳」,AIgraderC 在「聊天室」下拉選單選「閒聊」,三人各自輸入自己的代號進入。AIgraderA 說一句話,AIgraderB 看得到,AIgraderC 看不到;AIgraderC 說話則反過來。三個人的線上名單也各自獨立(大廳 2 人、閒聊 1 人)。AIgraderB 用聊天室頂部的下拉選單換到「閒聊」,畫面清空、名單變成閒聊的(AIgraderB、AIgraderC),AIgraderC 看到「AIgraderB 進來了」,AIgraderA 看到「AIgraderB 離開了」。網址加上 `?room=night` 可以預先選好「深夜」。
 
+### 伺服器端強制的限制(C 級)
+
+- **說明**:原本所有規則(一秒一則、200 字、代號格式)只在瀏覽器檢查,懂技術的人可以繞過網頁直接對 Supabase 發送。現在改成:頻道是**私有頻道**,權限規則不給瀏覽器發送的權限,**所有發送(訊息、輸入中、表情回應、收回)都要經過 Edge Function `send`**。它在伺服器端強制:格式與 200 字上限、**禁用字詞過濾**、**頻率限制**(每個代號、每個來源網路位址各一道,計數存在一張只存次數的表),通過才轉發。訊息仍然不保存。管理金鑰只用 Supabase 自動提供給函式的環境變數,沒有進 repo。
+- **對應檔案**:`supabase/functions/send/index.ts`(函式)、`supabase/functions/_shared/handle.js`(檢查邏輯)、`supabase/functions/_shared/blocklist.js`(字詞清單)、`supabase/migrations/20261015000000_server_side_limits.sql`(私有頻道權限規則與計數表)、`src/transport-supabase.js`(改成私有頻道、發送改呼叫函式、`onRejected`)、`src/main.js`(顯示被拒絕的原因)、`tests/server-handle.test.js`、`scripts/bypass-demo.js`
+- **怎麼操作才看得到**:
+  1. **字詞過濾**:進入任一聊天室,送出「你這個白痴」,輸入框下方出現「訊息含有不允許的字詞,沒有送出」,其他瀏覽器都收不到。
+  2. **繞過網頁也擋得住**:在專案資料夾執行 `npm run demo:bypass`(需要 `.env.local`)。它不經過網頁,直接對 Supabase 嘗試:在私有頻道直接發送、改開同名公開頻道發送、直接呼叫函式送過長/空白/格式錯誤/不存在的聊天室/禁用字詞、同時連送 6 則。每一項會印出「通過」(代表擋住了)或「失敗」,最後一項是對照:正常訊息仍然送得出去。
+  3. **頻率**:`npm run demo:bypass` 的第三段,同一個代號同時連送 6 則,只有 1 則通過,其餘回 HTTP 429。
+- **還擋不住的**(完整說明見 [`docs/architecture.md`](docs/architecture.md) 第 9.1 節):50 人上限、代號不重複、冒用另一個在線者的代號,這三項仍然只靠瀏覽器,因為線上名單仍由瀏覽器自己登記。
+
 ## 安全與限制
 
-以下兩項是安全與使用限制,不是聊天功能,所以不放在「新增功能」。完整的限制與已知缺口見 [`docs/architecture.md`](docs/architecture.md) 第 9 節。
+以下兩項是安全與使用限制,不是聊天功能,所以不放在「新增功能」。(伺服器端強制的限制是另一項,放在上面的「新增功能」,因為它是 C 級功能。)完整的限制與已知缺口見 [`docs/architecture.md`](docs/architecture.md) 第 9 節。
 
 ### 收訊端過濾冒用與洗版
 
@@ -83,13 +93,17 @@
 
 | 檔案 | 做什麼 |
 |---|---|
-| `src/transport-supabase.js` | **連 Supabase 的程式**。負責進入與離開頻道、收發訊息、線上名單、斷線重連 |
+| `src/transport-supabase.js` | **連 Supabase 的程式**。負責進入與離開(私有)頻道、接收訊息、線上名單、斷線重連;發送改為呼叫 Edge Function |
+| `supabase/functions/send/index.ts` | **Edge Function**:發送訊息的唯一入口,在伺服器端檢查格式、字詞、頻率後轉發 |
+| `supabase/functions/_shared/` | 函式用的共用程式:`handle.js`(檢查邏輯)、`blocklist.js`(禁用字詞清單)、`rules.js`(`src/validate.js` 的複本,由 `npm run sync:shared` 產生) |
+| `supabase/migrations/` | 資料庫設定(SQL):私有頻道的權限規則、頻率計數表 |
+| `scripts/` | `sync-shared.js`(同步規則複本)、`bypass-demo.js`(示範繞過網頁也擋得住) |
 | `src/main.js` | 總指揮。最上面的 `import { createTransport } ...` 那一行載入 `transport-supabase.js`,它是唯一決定「用哪一個收發零件」的地方 |
 | `src/config.js` | 讀取 Supabase 的專案網址與公開金鑰(來自環境變數,見下一節) |
 | `src/transport-mock.js` | 階段一用的假收發零件(只在同一個瀏覽器的分頁之間互傳),留作測試用 |
 | `src/ui.js`、`src/validate.js`、`src/color.js`、`src/style.css` | 畫面更新、代號與訊息的檢查規則、代號顏色、外觀 |
 | `index.html`、`vite.config.js` | 網頁入口、Vite 設定 |
-| `package.json`、`package-lock.json` | 依賴套件(`@supabase/supabase-js`、`vite`)與指令 |
+| `package.json`、`package-lock.json` | 依賴套件(`@supabase/supabase-js`、`vite`)與指令(`npm run demo:bypass`、`npm run sync:shared` 等) |
 | `.github/workflows/deploy.yml` | **部署流程**:build 之後發佈到 GitHub Pages |
 | `tests/` | 單元測試 |
 
@@ -133,6 +147,7 @@ Supabase 的專案網址與公開金鑰**不寫在原始碼裡**,build 時由環
 
 - 這兩個值本來就是給瀏覽器用的公開值,build 之後會寫進網站的 JavaScript,任何人打開網頁都看得到,所以放 Variables,不是 Secrets。**放進 Variables 不會讓它變成機密。**
 - **絕對不要**把 secret key(`sb_secret_...`)、`service_role` key、資料庫密碼放進這個 repo。
+- Edge Function 需要高權限才能轉發訊息,它用的是 **Supabase 在函式執行時自動提供的環境變數**(`SUPABASE_SERVICE_ROLE_KEY`),程式裡只有讀取這個變數的那一行,沒有金鑰的值,我們也沒有另外設定任何 secret。部署函式用的是你自己登入 Supabase CLI 的 access token,存在你電腦裡,不在 repo、不在 GitHub。
 
 ## 在自己的電腦上開發
 
@@ -152,11 +167,13 @@ npm run preview             # 預覽打包後的版本
 npm test
 ```
 
-測試涵蓋檢查規則、顏色與假收發零件,不會連到 Supabase。
+測試涵蓋檢查規則、顏色、假收發零件,以及伺服器端的檢查邏輯(`tests/server-handle.test.js`,用假的依賴測,包含格式、頻率、字詞過濾、出錯時不放行),不會連到 Supabase。要對真的 Supabase 驗證「繞不過」,執行 `npm run demo:bypass`。
 
 ## 部署
 
 用 GitHub Actions 部署,流程在 `.github/workflows/deploy.yml`。推送到 `main` 分支後會自動執行(通常一到兩分鐘),也可以到 repo 的 **Actions** 頁籤手動執行。
+
+**網站**由 GitHub Actions 部署。**伺服器端**(Edge Function 與資料庫設定)不經過 GitHub Actions,由有 Supabase 帳號的人在自己電腦上用 Supabase CLI 部署(`npx supabase login`、`link`、`db push`、`functions deploy send`),步驟與次序見 [`docs/architecture.md`](docs/architecture.md) 第 12 節。
 
 第一次使用要在 GitHub 網頁上設定:
 

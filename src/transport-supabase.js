@@ -5,14 +5,17 @@
 //   leave()
 //   send(text)     → 送出的訊息編號(id);沒送出(還沒進入、連線中斷)就回傳 false
 //   on(eventName, handler)
-//   sendTyping(isTyping) → 通知大家「我正在輸入 / 停了」(Broadcast 事件 typing,不保存)
-//   sendReaction(msgId, emoji, on) → 對某則訊息加上(on=true)或取消表情回應(Broadcast 事件 reaction,不保存);自己也會從 onReaction 收到
-//   recall(msgId) → 收回自己送出的某則訊息(Broadcast 事件 recall,不保存);自己也會從 onRecall 收到
-//   事件:onMessage、onTyping、onReaction、onRecall、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
+//   sendTyping(isTyping) → 通知大家「我正在輸入 / 停了」(事件 typing,不保存)
+//   sendReaction(msgId, emoji, on) → 對某則訊息加上(on=true)或取消表情回應(事件 reaction,不保存);自己也會從 onReaction 收到
+//   recall(msgId) → 收回自己送出的某則訊息(事件 recall,不保存);自己也會從 onRecall 收到
+//   事件:onMessage、onTyping、onReaction、onRecall、onRejected、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
 //
 // 只用 Realtime 的兩個功能:
-//   Broadcast:傳聊天訊息(事件名稱 message,Supabase 不保存)
-//   Presence :線上名單、進出提示、斷線偵測
+//   Broadcast:傳聊天訊息(事件名稱 message,Supabase 不保存)。頻道是「私有頻道」,
+//             瀏覽器只能收、不能發:所有發送(訊息、輸入中、表情回應、收回)都 POST 給
+//             Edge Function「send」(supabase/functions/send),由它檢查格式、字詞、頻率後轉發。
+//             被拒絕時,從 onRejected 收到原因(見架構文件第 5 節)。
+//   Presence :線上名單、進出提示、斷線偵測(瀏覽器仍可自己登記)
 
 // Supabase 官方函式庫 @supabase/supabase-js,用 npm 安裝(版本固定在 package.json),
 // 由 Vite 在 build 時打包進網站,不再從 CDN 載入。
@@ -26,7 +29,7 @@ const SUBSCRIBE_TIMEOUT_MS = 10000; // 連上頻道最多等多久
 const SYNC_WAIT_MS = 3000; // 等線上名單同步最多等多久
 const RACE_MS = 700; // 登記後再等一下,看有沒有人同一瞬間搶同一個代號
 
-const EVENTS = ['onMessage', 'onTyping', 'onReaction', 'onRecall', 'onJoin', 'onLeave', 'onRosterChange', 'onReconnect', 'onDisconnect', 'onKicked'];
+const EVENTS = ['onMessage', 'onTyping', 'onReaction', 'onRecall', 'onRejected', 'onJoin', 'onLeave', 'onRosterChange', 'onReconnect', 'onDisconnect', 'onKicked'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export function createTransport() {
@@ -41,6 +44,7 @@ export function createTransport() {
   let online = true;
   let known = new Map(); // 目前的線上名單:presence key → { nickname, joinedAt }
   let syncWaiters = [];
+  let currentRoom = DEFAULT_ROOM; // 發送時告訴伺服器要送到哪一個聊天室
 
   function emit(name, ...args) {
     for (const fn of handlers[name]) {
@@ -123,7 +127,7 @@ export function createTransport() {
 
   async function getClient() {
     if (client) return client;
-    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) throw new Error('js/config.js 還沒填入專案網址與公開金鑰');
+    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) throw new Error('src/config.js 還沒填入專案網址與公開金鑰');
     client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       // 這個專案沒有登入,不需要也不要把任何登入資料存進瀏覽器
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -212,12 +216,13 @@ export function createTransport() {
       const c = await getClient();
       ch = c.channel(roomChannelName(room), {
         config: {
-          // self: 自己送的訊息也會從伺服器回來,畫面統一從 onMessage 顯示
-          broadcast: { self: true },
+          // 私有頻道:只有伺服器(Edge Function)能發送,瀏覽器只能接收(權限見 supabase/migrations)
+          private: true,
           presence: { key: id },
         },
       });
       channel = ch;
+      currentRoom = room;
       ch.on('broadcast', { event: 'message' }, ({ payload }) => {
         if (ch === channel && joined) emit('onMessage', payload);
       });
@@ -281,34 +286,47 @@ export function createTransport() {
     closeChannel();
   }
 
+  // 所有發送都交給 Edge Function。結果不等它:成功的話,訊息會從頻道回來(onMessage 等事件);
+  // 被拒絕或網路出錯,就用 onRejected 告訴畫面。
+  async function post(event, payload) {
+    const room = currentRoom;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_PUBLISHABLE_KEY },
+        body: JSON.stringify({ room, event, payload }),
+      });
+      if (res.ok) return;
+      const body = await res.json().catch(() => null);
+      emit('onRejected', { event, payload, status: res.status, reason: body?.reason ?? 'failed', message: body?.message ?? '' });
+    } catch (err) {
+      console.error('送出失敗', err);
+      emit('onRejected', { event, payload, status: 0, reason: 'network', message: '' });
+    }
+  }
+
   function send(text) {
     if (!joined || !online || !channel) return false;
     const payload = { id: crypto.randomUUID(), nickname: me.nickname, text, sentAt: Date.now() };
-    channel.send({ type: 'broadcast', event: 'message', payload }).catch((err) => console.error('送出失敗', err));
+    post('message', payload);
     return payload.id;
   }
 
   function sendTyping(isTyping) {
     if (!joined || !online || !channel) return false;
-    channel
-      .send({ type: 'broadcast', event: 'typing', payload: { nickname: me.nickname, typing: !!isTyping } })
-      .catch(() => {});
+    post('typing', { nickname: me.nickname, typing: !!isTyping });
     return true;
   }
 
   function sendReaction(msgId, emoji, on) {
     if (!joined || !online || !channel) return false;
-    channel
-      .send({ type: 'broadcast', event: 'reaction', payload: { msgId, emoji, nickname: me.nickname, on: !!on } })
-      .catch((err) => console.error('送出表情回應失敗', err));
+    post('reaction', { msgId, emoji, nickname: me.nickname, on: !!on });
     return true;
   }
 
   function recall(msgId) {
     if (!joined || !online || !channel) return false;
-    channel
-      .send({ type: 'broadcast', event: 'recall', payload: { msgId, nickname: me.nickname } })
-      .catch((err) => console.error('收回訊息失敗', err));
+    post('recall', { msgId, nickname: me.nickname });
     return true;
   }
 

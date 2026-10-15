@@ -346,6 +346,24 @@ transport.on('onRecall', (p) => {
   ui.markRecalled(p.msgId);
 });
 
+// 伺服器(或假零件)拒絕了我送出的東西:把等待中的記錄清掉,訊息則提示原因
+const REJECT_TEXT = {
+  rateLimited: '送太快了,等一秒再送',
+  filtered: '訊息含有不允許的字詞,沒有送出',
+  invalid: '訊息格式不正確,沒有送出',
+};
+transport.on('onRejected', ({ event, payload, reason, message }) => {
+  if (!inChat) return;
+  if (event === 'message') {
+    sentIds.delete(payload.id);
+    ui.flashHint(REJECT_TEXT[reason] ?? (message || '訊息沒有送出,請再試一次'));
+  } else if (event === 'reaction') {
+    pendingReactions.delete(`${payload.msgId}|${payload.emoji}|${payload.on}`);
+  } else if (event === 'recall') {
+    pendingRecalls.delete(payload.msgId);
+  }
+});
+
 transport.on('onJoin', (nickname) => {
   if (inChat && nicknameKey(nickname) !== me.key) ui.addSystem(`${nickname} 進來了`);
 });

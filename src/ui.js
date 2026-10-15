@@ -19,6 +19,7 @@ import {
 const MAX_ITEMS = 200; // 畫面上最多保留幾則(含系統提示),更舊的移除
 const NEAR_BOTTOM_PX = 48;
 const HINT_MS = 1500;
+const REJECT_HINT_MS = 4000; // 伺服器拒絕的提示要約一秒後才回來,多顯示一會兒才看得到
 
 const $ = (id) => document.getElementById(id);
 
@@ -419,10 +420,10 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onRea
     el.hint.classList.toggle('warn', warn);
   }
 
-  function flashHint(text) {
+  function flashHint(text, ms = HINT_MS) {
     setHint(text, true);
     clearTimeout(hintTimer);
-    hintTimer = setTimeout(() => setHint(defaultHint), HINT_MS);
+    hintTimer = setTimeout(() => setHint(defaultHint), ms);
   }
 
   function trySend() {
@@ -516,6 +517,7 @@ export function createUI({ onNickname, onRetry, onLeave, onSend, onTyping, onRea
     updateReactions,
     markRecalled,
     addSystem,
+    flashHint: (text) => flashHint(text, REJECT_HINT_MS),
     clearLog,
     renderRoster,
     setBanner,

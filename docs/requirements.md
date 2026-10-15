@@ -80,6 +80,15 @@
 - **對應檔案**:`src/validate.js`(`ROOMS`、`isValidRoom`、`roomChannelName`)、`src/main.js`(`onSwitchRoom`、`tryJoin` 的聊天室參數、`store` 記住聊天室)、`src/ui.js`(聊天室選單)、`index.html`(`#room`、`#room-switch`)、`src/transport-supabase.js` 與 `src/transport-mock.js`(`join(代號, 聊天室)`,每個聊天室一個頻道)
 - **怎麼操作才看得到**:AIgraderA、AIgraderB、AIgraderC 三個瀏覽器打開網站。在輸入代號畫面,AIgraderA 與 AIgraderB 保持預設的「大廳」,AIgraderC 在「聊天室」下拉選單選「閒聊」,三人各自輸入自己的代號進入。AIgraderA 說一句話,AIgraderB 看得到,AIgraderC 看不到;AIgraderC 說話則反過來。三個人的線上名單也各自獨立(大廳 2 人、閒聊 1 人)。AIgraderB 用聊天室頂部的下拉選單換到「閒聊」,畫面清空、名單變成閒聊的(AIgraderB、AIgraderC),AIgraderC 看到「AIgraderB 進來了」,AIgraderA 看到「AIgraderB 離開了」。網址加上 `?room=night` 可以預先選好「深夜」。
 
+### 伺服器端強制的限制(C 級)
+
+- **等級**:C 級功能。
+- **需求**:原本的限制(一秒一則、200 字、代號格式)只在瀏覽器檢查,繞過網頁就能無視。要改成**伺服器強制**:瀏覽器只能接收,所有發送都要經過伺服器,由伺服器限制發送頻率與過濾字詞。訊息仍然不保存。管理金鑰不能進 repo,只能用 Supabase 自動提供給 Edge Function 的環境變數。
+- **做法**:頻道改成 Supabase Realtime 私有頻道,用權限規則禁止瀏覽器發送;新增 Edge Function `send` 作為唯一發送入口,檢查格式、禁用字詞、頻率(每個代號、每個來源網路位址),通過才轉發。頻率計數存在一張只存次數的資料表,不存任何訊息內容。
+- **對應檔案**:`supabase/functions/send/index.ts`、`supabase/functions/_shared/`、`supabase/migrations/`、`src/transport-supabase.js`、`tests/server-handle.test.js`、`scripts/bypass-demo.js`
+- **怎麼操作才看得到**:送出含禁用字詞的訊息(例如「你這個白痴」),會看到「訊息含有不允許的字詞,沒有送出」;或執行 `npm run demo:bypass`,它會繞過網頁直接對 Supabase 嘗試發送、送過長/過快/含禁用字詞的內容,並印出每一項是否被擋下。
+- **仍然擋不住**:50 人上限、代號不重複、冒用另一個在線者的代號,這三項仍只靠瀏覽器(因為線上名單仍由瀏覽器登記)。詳見 `docs/architecture.md` 第 9.1 節。
+
 ## 安全與限制
 
 以下兩項是安全與使用限制,不是聊天功能,所以不放在「新增功能」。

@@ -10,9 +10,11 @@
 //   sendTyping(isTyping) → 通知大家「我正在輸入 / 停了」(不保存、不回傳給自己)
 //   sendReaction(msgId, emoji, on) → 對某則訊息加上(on=true)或取消表情回應;自己也會從 onReaction 收到
 //   recall(msgId) → 收回自己送出的某則訊息;自己也會從 onRecall 收到
-//   事件:onMessage、onTyping、onReaction、onRecall、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
+//   事件:onMessage、onTyping、onReaction、onRecall、onRejected、onJoin、onLeave、onRosterChange、onReconnect、onDisconnect、onKicked
 
 import { DEFAULT_ROOM, nicknameKey, ROOM_LIMIT } from './validate.js';
+// 假零件沒有伺服器,但字詞過濾用和真的 Edge Function 同一份清單,方便在本機看到被擋下的樣子
+import { containsBlocked } from '../supabase/functions/_shared/blocklist.js';
 
 const CHANNEL_PREFIX = 'anon-chat-mock-'; // 每個聊天室一個頻道:anon-chat-mock-lobby、anon-chat-mock-chat…
 // 時間設定。瀏覽器會把「背景分頁」的計時器放慢,所以光靠對方定時報到來判斷
@@ -26,7 +28,7 @@ const DEFAULT_TIMING = {
 const GATHER_MS = 400; // 進入前等多久,收集目前的線上名單(模擬等 Presence 同步)
 const RACE_MS = 300; // 登記後再檢查一次有沒有人同時搶同一個代號
 
-const EVENTS = ['onMessage', 'onTyping', 'onReaction', 'onRecall', 'onJoin', 'onLeave', 'onRosterChange', 'onReconnect', 'onDisconnect', 'onKicked'];
+const EVENTS = ['onMessage', 'onTyping', 'onReaction', 'onRecall', 'onRejected', 'onJoin', 'onLeave', 'onRosterChange', 'onReconnect', 'onDisconnect', 'onKicked'];
 
 const BOT_NAMES = ['夜貓', '小華', '阿凱'];
 const BOT_LINES = [
@@ -325,6 +327,11 @@ export function createTransport({ bots = false, crowd = 0, timing = {} } = {}) {
   function send(text) {
     if (!joined || !online) return false;
     const message = { id: crypto.randomUUID(), nickname: me.nickname, text, sentAt: Date.now() };
+    if (containsBlocked(text)) {
+      // 模擬伺服器拒絕:不轉發給任何人,只通知送出的人
+      queueMicrotask(() => emit('onRejected', { event: 'message', payload: message, status: 422, reason: 'filtered', message: '' }));
+      return message.id;
+    }
     post({ type: 'chat', message });
     // 自己送的也從 onMessage 回來,畫面統一從這裡顯示。
     // 晚一拍再發出,呼叫端才來得及先記下回傳的訊息編號(真零件的訊息要繞一圈伺服器,本來就是之後才到)。

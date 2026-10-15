@@ -287,3 +287,31 @@ test('多個聊天室:換房間(離開再進另一間)後,舊房間的人看到�
     c.leave();
   }
 });
+
+test('字詞過濾:含禁用字詞的訊息不會轉發給任何人,送出的人從 onRejected 得知', async () => {
+  const a = createTransport();
+  const b = createTransport();
+  try {
+    await a.join('甲');
+    await b.join('乙');
+    const rejected = [];
+    a.on('onRejected', (r) => rejected.push(r));
+    const logA = record(a);
+    const logB = record(b);
+    const id = a.send('你這個白痴');
+    await sleep(50);
+    assert.equal(rejected.length, 1);
+    assert.equal(rejected[0].event, 'message');
+    assert.equal(rejected[0].reason, 'filtered');
+    assert.equal(rejected[0].payload.id, id);
+    assert.equal(logA.filter((e) => e[0] === 'onMessage').length, 0);
+    assert.equal(logB.filter((e) => e[0] === 'onMessage').length, 0);
+    // 正常的訊息照常送達
+    a.send('你好');
+    await sleep(50);
+    assert.equal(logB.filter((e) => e[0] === 'onMessage').length, 1);
+  } finally {
+    a.leave();
+    b.leave();
+  }
+});
