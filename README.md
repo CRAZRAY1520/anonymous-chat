@@ -129,6 +129,7 @@
 | 12 | 10/15 03:22 | [`0def6a8`](https://github.com/CRAZRAY1520/anonymous-chat/commit/0def6a8) | 新功能:**訊息表情回應**(👍 ❤️ 😂,事件 `reaction`) |
 | 13 | 10/15 03:26 | [`4c43b40`](https://github.com/CRAZRAY1520/anonymous-chat/commit/4c43b40) | 新功能:**收回自己的訊息**(事件 `recall`) |
 | 14 | 10/15 03:35 | [`820f4e1`](https://github.com/CRAZRAY1520/anonymous-chat/commit/820f4e1) | 新功能:**多個聊天室**(大廳、閒聊、深夜,每個聊天室一個頻道,名單與訊息各自獨立) |
+| 15 | 10/15 | [`3d316bf`](https://github.com/CRAZRAY1520/anonymous-chat/commit/3d316bf)、[`f246823`](https://github.com/CRAZRAY1520/anonymous-chat/commit/f246823) | **C 級:伺服器端強制的限制**。頻道改成私有頻道,瀏覽器只能收;新增 Edge Function `send` 檢查格式、禁用字詞、頻率後才轉發;新增頻率計數表。前端發送改呼叫函式,新增 `onRejected` 事件 |
 
 說明:
 
